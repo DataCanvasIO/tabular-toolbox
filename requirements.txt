@@ -1,9 +1,10 @@
-hypernets>=0.1.2
+numpy
+pandas
+scipy
+scikit-learn
 tables>=3.6.1
-lightgbm
-xgboost
-catboost
 featuretools
+six
 dask
 dask-ml
 dask-lightgbm
