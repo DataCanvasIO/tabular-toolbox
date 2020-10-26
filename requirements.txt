@@ -3,9 +3,7 @@ pandas
 scipy
 scikit-learn
 tables>=3.6.1
-featuretools
 six
 dask
 dask-ml
-dask-lightgbm
-dask-xgboost
+lightgbm

@@ -11,12 +11,12 @@ requirements = [
     'pandas>=0.25.3',
     'scikit-learn>=0.22.1',
     'numpy>=1.17.4',
+    'scipy',
     'tables>=3.6.1',
+    'six',
     'lightgbm',
     'dask',
     'dask-ml',
-    'dask-lightgbm',
-    'dask-xgboost',
 ]
 
 MIN_PYTHON_VERSION = '>=3.6.*'
