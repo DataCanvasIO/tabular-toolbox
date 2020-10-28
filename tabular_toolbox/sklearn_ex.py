@@ -5,6 +5,7 @@
 import numpy as np
 import pandas as pd
 import copy
+import time
 
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils import column_or_1d
@@ -303,6 +304,7 @@ class FeatureSelectionTransformer():
         return score
 
     def fit(self, X, y):
+        start_time = time.time()
         columns = X.columns.to_list()
         if len(columns) > self.max_cols:
             columns = np.random.choice(columns, self.max_cols, replace=False)
@@ -319,6 +321,7 @@ class FeatureSelectionTransformer():
         cat_cols = column_object_category_bool(X_train)
 
         if len(cat_cols) > 0:
+            logger.info('ordinal encoding...')
             X_train['__datacanvas__source__'] = 'train'
             X_test['__datacanvas__source__'] = 'test'
             X_all = pd.concat([X_train, X_test], axis=0)
@@ -336,11 +339,13 @@ class FeatureSelectionTransformer():
             F_train = X_train[[c]]
             F_test = X_test[[c]]
             self.scores_[c] = self.feature_score(F_train, y_train, F_test, y_test)
-
+        logger.info(f'feature score:{self.scores_}')
         topn = np.min([np.max([int(len(columns) * self.ratio_max_cols), 10]), self.n_max_cols])
 
         sorted_scores = sorted([[col, score] for col, score in self.scores_.items()], key=lambda x: x[1])
         self.columns_ = [s[0] for s in sorted_scores[:topn]]
+        logger.info(f'selected columns:{self.columns_}')
+        logger.info(f'taken {time.time() - start_time}s')
 
     def transform(self, X):
         return X[self.columns_]
