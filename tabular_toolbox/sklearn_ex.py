@@ -339,10 +339,10 @@ class FeatureSelectionTransformer():
             F_train = X_train[[c]]
             F_test = X_test[[c]]
             self.scores_[c] = self.feature_score(F_train, y_train, F_test, y_test)
-        logger.info(f'feature score:{self.scores_}')
-        topn = np.min([np.max([int(len(columns) * self.ratio_max_cols), 10]), self.n_max_cols])
 
         sorted_scores = sorted([[col, score] for col, score in self.scores_.items()], key=lambda x: x[1])
+        logger.info(f'feature scores:{sorted_scores}')
+        topn = np.min([np.max([int(len(columns) * self.ratio_max_cols), 10]), self.n_max_cols])
         self.columns_ = [s[0] for s in sorted_scores[:topn]]
         logger.info(f'selected columns:{self.columns_}')
         logger.info(f'taken {time.time() - start_time}s')
