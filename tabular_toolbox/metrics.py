@@ -7,6 +7,10 @@ import numpy as np
 from dask import dataframe as dd, array as da
 from sklearn import metrics as sk_metrics
 
+from .utils import logging
+
+logger = logging.getLogger(__name__)
+
 _DASK_TYPES = (dd.DataFrame, da.Array, dd.Series)
 _DASK_METRICS = ('accuracy', 'logloss')
 
@@ -112,6 +116,5 @@ def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task=
                     ll = ll.compute()
                 score['logloss'] = ll
             else:
-                import sys
-                print('unknown metric:', metric, file=sys.stderr)
+                logger.warning(f'unknown metric: {metric}')
     return score

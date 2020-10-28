@@ -14,6 +14,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import roc_auc_score, matthews_corrcoef, make_scorer
 from .column_selector import column_object_category_bool, column_number_exclude_timedelta
+from .utils import logging
+
+logger = logging.getLogger(__name__)
 
 roc_auc_scorer = make_scorer(roc_auc_score, greater_is_better=True,
                              needs_threshold=True)
@@ -39,7 +42,7 @@ def covariate_shift_score(X_train, X_test, copy=True, scorer=roc_auc_scorer, cv=
     mixed = pd.concat([train, test], axis=0)
     y = mixed.pop(target_col)
 
-    print('Preprocessing...')
+    logger.info('Preprocessing...')
     # Preprocess data: imputing and scaling
     cat_cols = column_object_category_bool(mixed)
     num_cols = column_number_exclude_timedelta(mixed)
@@ -53,7 +56,7 @@ def covariate_shift_score(X_train, X_test, copy=True, scorer=roc_auc_scorer, cv=
 
     # Calculate the shift score for each column separately.
     scores = {}
-    print('Scoring...')
+    logger.info('Scoring...')
     for c in mixed.columns:
         x = mixed[[c]]
         model = LGBMClassifier()
@@ -67,7 +70,7 @@ def covariate_shift_score(X_train, X_test, copy=True, scorer=roc_auc_scorer, cv=
         else:
             score_ = cross_val_score(model, X=x, y=y, verbose=0, scoring=scorer, cv=cv)
             score = np.mean(score_)
-        print(f'column:{c}, score:{score}')
+        logger.info(f'column:{c}, score:{score}')
         scores[c] = score
 
     return scores
