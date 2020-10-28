@@ -106,8 +106,8 @@ def reduce_mem_usage(df, verbose=True):
 
 class DataCleaner:
     def __init__(self, nan_chars=None, deduce_object_dtype=True, clean_invalidate_columns=True,
-                 clean_label_nan_rows=True,
-                 replace_inf_values=np.nan, drop_columns=None, reduce_mem_usage=False, int_convert_to='float'):
+                 clean_label_nan_rows=True, replace_inf_values=np.nan, drop_columns=None, reduce_mem_usage=False,
+                 int_convert_to='float'):
         self.nan_chars = nan_chars
         self.deduce_object_dtype = deduce_object_dtype
         self.clean_invalidate_columns = clean_invalidate_columns
