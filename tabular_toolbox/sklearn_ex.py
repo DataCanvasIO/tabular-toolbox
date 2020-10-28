@@ -2,18 +2,14 @@
 """
 
 """
-import copy
-
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
-from sklearn.utils import column_or_1d
+import copy
+
 from sklearn.utils.validation import check_is_fitted
-
+from sklearn.utils import column_or_1d
+from sklearn.preprocessing import LabelEncoder
 from .column_selector import column_skewness_kurtosis, column_object, column_int
-from .utils import logging
-
-logger = logging.get_logger(__name__)
 
 
 class SafeLabelEncoder(LabelEncoder):
@@ -61,7 +57,7 @@ class SkewnessKurtosisTransformer:
         assert len(X.shape) == 2
         self.columns_ = column_skewness_kurtosis(X, skew_threshold=self.skewness_threshold,
                                                  kurtosis_threshold=self.kurtosis_threshold)
-        logger.info(f'Selected columns:{self.columns_}')
+        print(f'Selected columns:{self.columns_}')
         return self
 
     def transform(self, X):
@@ -70,7 +66,7 @@ class SkewnessKurtosisTransformer:
             try:
                 X[self.columns_] = self.transform_fn(X[self.columns_])
             except Exception as e:
-                logger.error(e)
+                print(e)
         return X
 
 
@@ -128,35 +124,35 @@ class DataCleaner:
             X.insert(0, 'hypergbm__Y__', y)
 
         if self.nan_chars is not None:
-            logger.info(f'Replace chars{self.nan_chars} to NaN')
+            print(f'Replace chars{self.nan_chars} to NaN')
             X = X.replace(self.nan_chars, np.nan)
 
         if self.deduce_object_dtype:
-            logger.info('Deduce data type for object columns.')
+            print('Deduce data type for object columns.')
             for col in column_object(X):
                 try:
                     X[col] = X[col].astype('float')
                 except Exception as e:
-                    logger.warning(f'Deduce object column [{col}] failed. {e}')
+                    print(f'Deduce object column [{col}] failed. {e}')
 
         if self.int_convert_to is not None:
-            logger.info(f'Convert int type to {self.int_convert_to}')
+            print(f'Convert int type to {self.int_convert_to}')
             int_cols = column_int(X)
             X[int_cols] = X[int_cols].astype(self.int_convert_to)
 
         if y is not None:
             if self.clean_label_nan_rows:
-                logger.info('Clean the rows which label is NaN')
+                print('Clean the rows which label is NaN')
                 X = X.dropna(subset=['hypergbm__Y__'])
             y = X.pop('hypergbm__Y__')
 
         if self.drop_columns is not None:
-            logger.info(f'Drop columns:{self.drop_columns}')
+            print(f'Drop columns:{self.drop_columns}')
             for col in self.drop_columns:
                 X.pop(col)
 
         if self.clean_invalidate_columns:
-            logger.info('Clean invalidate columns')
+            print('Clean invalidate columns')
             for col in X.columns:
                 n_unique = X[col].nunique(dropna=True)
                 if n_unique <= 1:
@@ -174,14 +170,14 @@ class DataCleaner:
 
         X, y = self.clean_data(X, y)
         if self.reduce_mem_usage:
-            logger.info('Reduce memory usage')
+            print('Reduce memory usage')
             reduce_mem_usage(X)
 
         if self.replace_inf_values is not None:
-            logger.info(f'Replace [inf,-inf] to {self.replace_inf_values}')
+            print(f'Replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
 
-        logger.info('Collect meta info from data')
+        print('Collect meta info from data')
         df_meta = {}
         for col_info in zip(X.columns.to_list(), X.dtypes):
             dtype = str(col_info[1])
@@ -198,7 +194,7 @@ class DataCleaner:
                 y = copy.deepcopy(y)
         self.clean_data(X, y)
         if self.df_meta is not None:
-            logger.info('Processing with meta info')
+            print('Processing with meta info')
             all_cols = []
             for dtype, cols in self.df_meta.items():
                 all_cols += cols
@@ -207,10 +203,10 @@ class DataCleaner:
 
             for c in drop_cols:
                 X.pop(c)
-            logger.info(f'droped columns:{drop_cols}')
+            print(f'droped columns:{drop_cols}')
 
         if self.replace_inf_values is not None:
-            logger.info(f'Replace [inf,-inf] to {self.replace_inf_values}')
+            print(f'Replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
 
         return X, y

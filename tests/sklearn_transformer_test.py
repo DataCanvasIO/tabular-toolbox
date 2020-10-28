@@ -11,7 +11,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures
 from tabular_toolbox.column_selector import *
 from tabular_toolbox.dataframe_mapper import DataFrameMapper
-from tabular_toolbox.sklearn_ex import MultiLabelEncoder
+from tabular_toolbox.sklearn_ex import MultiLabelEncoder, FeatureSelectionTransformer, subsample
+from tabular_toolbox.datasets import dsutils
 
 
 def get_df():
@@ -99,3 +100,33 @@ class Test_Transformer():
 
         assert 'b' in x_new
         assert 'd' in x_new
+
+    def test_subsample(self):
+        df = dsutils.load_bank()
+        y = df.pop('y')
+        X_train, X_test, y_train, y_test = subsample(df, y, 100, 60, 'regression')
+        assert X_train.shape == (60, 17)
+        assert X_test.shape == (40, 17)
+        assert y_train.shape == (60,)
+        assert y_test.shape == (40,)
+
+        X_train, X_test, y_train, y_test = subsample(df, y, 100, 60, 'classification')
+        assert X_train.shape == (60, 17)
+        assert X_test.shape == (40, 17)
+        assert y_train.shape == (60,)
+        assert y_test.shape == (40,)
+
+    def test_feature_selection(self):
+        df = dsutils.load_bank()
+        y = df.pop('y')
+        fse = FeatureSelectionTransformer('classification', 10000, 10000, 10, n_max_cols=8)
+        fse.fit(df, y)
+        assert len(fse.scores_.items()) == 10
+        assert len(fse.columns_) == 8
+
+        df = dsutils.load_bank()
+        y = df.pop('age')
+        fse = FeatureSelectionTransformer('regression', 10000, 10000, -1)
+        fse.fit(df, y)
+        assert len(fse.scores_.items()) == 17
+        assert len(fse.columns_) == 10
