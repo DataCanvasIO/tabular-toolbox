@@ -9,7 +9,42 @@ import copy
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils import column_or_1d
 from sklearn.preprocessing import LabelEncoder
-from .column_selector import column_skewness_kurtosis, column_object, column_int
+from sklearn.model_selection import train_test_split
+from .column_selector import column_skewness_kurtosis, column_object, column_int, column_object_category_bool
+from lightgbm import LGBMRegressor, LGBMClassifier, early_stopping
+from sklearn.metrics import log_loss, mean_squared_error
+from sklearn.preprocessing import OrdinalEncoder
+
+
+def root_mean_squared_error(y_true, y_pred,
+                            sample_weight=None,
+                            multioutput='uniform_average', squared=True):
+    return np.sqrt(
+        mean_squared_error(y_true, y_pred, sample_weight=sample_weight, multioutput=multioutput, squared=squared))
+
+
+def subsample(X, y, max_samples, train_samples, task, random_state=9527):
+    stratify = None
+    if X.shape[0] > max_samples:
+        if task != 'regression':
+            stratify = y
+        X_train, _, y_train, _ = train_test_split(
+            X, y, train_size=max_samples, shuffle=True, stratify=stratify
+        )
+        if task != 'regression':
+            stratify = y_train
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_train, y_train, train_size=train_samples, shuffle=True, stratify=stratify, random_state=random_state
+        )
+    else:
+        if task != 'regression':
+            stratify = y
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, train_size=0.5, shuffle=True, stratify=stratify
+        )
+
+    return X_train, X_test, y_train, y_test
 
 
 class SafeLabelEncoder(LabelEncoder):
@@ -210,3 +245,99 @@ class DataCleaner:
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
 
         return X, y
+
+
+class FeatureSelectionTransformer():
+    def __init__(self, task, max_train_samples=10000, max_test_samples=10000, max_cols=10000, ratio_max_cols=0.05,
+                 n_max_cols=60):
+        self.task = task
+        if max_cols <= 0:
+            max_cols = 10000
+        if max_train_samples <= 0:
+            max_train_samples = 10000
+        if max_test_samples <= 0:
+            max_test_samples = 10000
+
+        self.max_train_samples = max_train_samples
+        self.max_test_samples = max_test_samples
+        self.max_cols = max_cols
+        self.ratio_max_cols = ratio_max_cols
+        self.n_max_cols = n_max_cols
+        self.scores_ = {}
+        self.columns_ = []
+
+    def get_categorical_features(self, X):
+        cat_cols = column_object_category_bool(X)
+        int_cols = column_int(X)
+        for c in int_cols:
+            if X[c].min() >= 0 and X[c].max() < np.iinfo(np.int32).max:
+                cat_cols.append(c)
+        return cat_cols
+
+    def feature_score(self, F_train, y_train, F_test, y_test):
+        if self.task == 'regression':
+            model = LGBMRegressor()
+            eval_metric = root_mean_squared_error
+        else:
+            model = LGBMClassifier()
+            eval_metric = log_loss
+
+        cat_cols = self.get_categorical_features(F_train)
+
+        model.fit(F_train, y_train,
+                  # eval_set=(F_test, y_test),
+                  # early_stopping_rounds=20,
+                  # verbose=0,
+                  categorical_feature=cat_cols,
+                  # eval_metric=eval_metric,
+                  )
+        if self.task == 'regression':
+            y_pred = model.predict(F_test)
+        else:
+            y_pred = model.predict_proba(F_test)[:, 1]
+
+        score = eval_metric(y_test, y_pred)
+        return score
+
+    def fit(self, X, y):
+        columns = X.columns.to_list()
+        if len(columns) > self.max_cols:
+            columns = np.random.choice(columns, self.max_cols, replace=False)
+
+        X_train, X_test, y_train, y_test = subsample(X, y,
+                                                     max_samples=self.max_test_samples + self.max_train_samples,
+                                                     train_samples=self.max_train_samples,
+                                                     task=self.task)
+        if self.task != 'regression' and y_train.dtype != 'int':
+            le = LabelEncoder()
+            y_train = le.fit_transform(y_train)
+            y_test = le.transform(y_test)
+
+        cat_cols = column_object_category_bool(X_train)
+
+        if len(cat_cols) > 0:
+            X_train['__datacanvas__source__'] = 'train'
+            X_test['__datacanvas__source__'] = 'test'
+            X_all = pd.concat([X_train, X_test], axis=0)
+            oe = OrdinalEncoder()
+            X_all[cat_cols] = oe.fit_transform(X_all[cat_cols]).astype('int')
+
+            X_train = X_all[X_all['__datacanvas__source__'] == 'train']
+            X_test = X_all[X_all['__datacanvas__source__'] == 'test']
+            X_train.pop('__datacanvas__source__')
+            X_test.pop('__datacanvas__source__')
+
+        self.scores_ = {}
+
+        for c in columns:
+            F_train = X_train[[c]]
+            F_test = X_test[[c]]
+            self.scores_[c] = self.feature_score(F_train, y_train, F_test, y_test)
+
+        topn = np.min([np.max([int(len(columns) * self.ratio_max_cols), 10]), self.n_max_cols])
+
+        sorted_scores = sorted([[col, score] for col, score in self.scores_.items()], key=lambda x: x[1])
+        self.columns_ = [s[0] for s in sorted_scores[:topn]]
+
+    def transform(self, X):
+        return X[self.columns_]
