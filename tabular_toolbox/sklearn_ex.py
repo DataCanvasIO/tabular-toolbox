@@ -162,26 +162,26 @@ class DataCleaner:
 
     def clean_data(self, X, y):
         assert isinstance(X, pd.DataFrame)
+        y_name = '__tabular-toolbox__Y__'
         if y is not None:
-            X.insert(0, 'hypergbm__Y__', y)
+            X.insert(0, y_name, y)
 
         if self.nan_chars is not None:
             logger.info(f'Replace chars{self.nan_chars} to NaN')
             X = X.replace(self.nan_chars, np.nan)
 
         if self.correct_object_dtype:
-            logger.info('Deduce data type for object columns.')
+            logger.info('Correct data type for object columns.')
             for col in column_object(X):
                 try:
                     X[col] = X[col].astype('float')
                 except Exception as e:
-                    logger.error(f'Deduce object column [{col}] failed. {e}')
+                    logger.error(f'Correct object column [{col}] failed. {e}')
 
         if self.drop_duplicated_columns:
             duplicates = X.T.duplicated().values
             columns = [c for i, c in enumerate(X.columns.to_list()) if not duplicates[i]]
             X = X[columns]
-
 
         if self.int_convert_to is not None:
             logger.info(f'Convert int type to {self.int_convert_to}')
@@ -191,8 +191,8 @@ class DataCleaner:
         if y is not None:
             if self.drop_label_nan_rows:
                 logger.info('Clean the rows which label is NaN')
-                X = X.dropna(subset=['hypergbm__Y__'])
-            y = X.pop('hypergbm__Y__')
+                X = X.dropna(subset=[y_name])
+            y = X.pop(y_name)
 
         if self.drop_columns is not None:
             logger.info(f'Drop columns:{self.drop_columns}')
@@ -240,7 +240,7 @@ class DataCleaner:
             X = copy.deepcopy(X)
             if y is not None:
                 y = copy.deepcopy(y)
-        self.clean_data(X, y)
+        X, y = self.clean_data(X, y)
         if self.df_meta_ is not None:
             logger.info('Processing with meta info')
             all_cols = []
@@ -265,7 +265,7 @@ class DataCleaner:
         else:
             meta = {}
             for dtype, cols in self.df_meta_.items():
-                meta[dtype] = list(set(cols) - set(columns))
+                meta[dtype] = [c for c in cols if c not in columns]
             self.df_meta_ = meta
 
 

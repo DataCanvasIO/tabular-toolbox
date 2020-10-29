@@ -44,3 +44,13 @@ class Test_DataCleaner():
         assert y_t.shape == (5,)
         assert x_t.columns.to_list() == ['x1_int_nanchar', 'x5_dup_1', 'x7_dup_f1', 'x9_f']
         assert list(x_t.dtypes.values) == [dtype('float64'), dtype('O'), dtype('float64'), dtype('float64')]
+        assert cleaner.df_meta_ == {'float64': ['x1_int_nanchar', 'x7_dup_f1', 'x9_f'], 'object': ['x5_dup_1']}
+
+        cleaner.append_drop_columns(['x9_f'])
+
+        assert cleaner.df_meta_ == {'float64': ['x1_int_nanchar', 'x7_dup_f1'], 'object': ['x5_dup_1']}
+        x_t, y_t = cleaner.transform(df, y)
+        assert x_t.shape == (5, 3)
+        assert y_t.shape == (5,)
+        assert x_t.columns.to_list() == ['x1_int_nanchar', 'x7_dup_f1', 'x5_dup_1']
+        assert list(x_t.dtypes.values) == [dtype('float64'), dtype('float64'), dtype('O')]
