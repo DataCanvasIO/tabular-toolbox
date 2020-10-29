@@ -2,19 +2,20 @@
 """
 
 """
-import numpy as np
-import pandas as pd
 import copy
 import time
 
-from sklearn.utils.validation import check_is_fitted
-from sklearn.utils import column_or_1d
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-from .column_selector import column_skewness_kurtosis, column_object, column_int, column_object_category_bool
-from lightgbm import LGBMRegressor, LGBMClassifier, early_stopping
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMRegressor, LGBMClassifier
 from sklearn.metrics import log_loss, mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OrdinalEncoder
+from sklearn.utils import column_or_1d
+from sklearn.utils.validation import check_is_fitted
+
+from .column_selector import column_skewness_kurtosis, column_object, column_int, column_object_category_bool
 from .utils import logging
 
 logger = logging.get_logger(__name__)
@@ -144,18 +145,20 @@ def reduce_mem_usage(df, verbose=True):
 
 
 class DataCleaner:
-    def __init__(self, nan_chars=None, deduce_object_dtype=True, clean_invalidate_columns=True,
-                 clean_label_nan_rows=True, replace_inf_values=np.nan, drop_columns=None, reduce_mem_usage=False,
+    def __init__(self, nan_chars=None, correct_object_dtype=True, drop_constant_columns=True,
+                 drop_duplicated_columns=False, drop_label_nan_rows=True, replace_inf_values=np.nan,
+                 drop_columns=None, reduce_mem_usage=False,
                  int_convert_to='float'):
         self.nan_chars = nan_chars
-        self.deduce_object_dtype = deduce_object_dtype
-        self.clean_invalidate_columns = clean_invalidate_columns
-        self.clean_label_nan_rows = clean_label_nan_rows
+        self.correct_object_dtype = correct_object_dtype
+        self.drop_constant_columns = drop_constant_columns
+        self.drop_label_nan_rows = drop_label_nan_rows
         self.replace_inf_values = replace_inf_values
         self.drop_columns = drop_columns
-        self.df_meta = None
+        self.drop_duplicated_columns = drop_duplicated_columns
         self.reduce_mem_usage = reduce_mem_usage
         self.int_convert_to = int_convert_to
+        self.df_meta_ = None
 
     def clean_data(self, X, y):
         assert isinstance(X, pd.DataFrame)
@@ -166,7 +169,7 @@ class DataCleaner:
             logger.info(f'Replace chars{self.nan_chars} to NaN')
             X = X.replace(self.nan_chars, np.nan)
 
-        if self.deduce_object_dtype:
+        if self.correct_object_dtype:
             logger.info('Deduce data type for object columns.')
             for col in column_object(X):
                 try:
@@ -174,13 +177,19 @@ class DataCleaner:
                 except Exception as e:
                     logger.error(f'Deduce object column [{col}] failed. {e}')
 
+        if self.drop_duplicated_columns:
+            duplicates = X.T.duplicated().values
+            columns = [c for i, c in enumerate(X.columns.to_list()) if not duplicates[i]]
+            X = X[columns]
+
+
         if self.int_convert_to is not None:
             logger.info(f'Convert int type to {self.int_convert_to}')
             int_cols = column_int(X)
             X[int_cols] = X[int_cols].astype(self.int_convert_to)
 
         if y is not None:
-            if self.clean_label_nan_rows:
+            if self.drop_label_nan_rows:
                 logger.info('Clean the rows which label is NaN')
                 X = X.dropna(subset=['hypergbm__Y__'])
             y = X.pop('hypergbm__Y__')
@@ -190,7 +199,7 @@ class DataCleaner:
             for col in self.drop_columns:
                 X.pop(col)
 
-        if self.clean_invalidate_columns:
+        if self.drop_constant_columns:
             logger.info('Clean invalidate columns')
             for col in X.columns:
                 n_unique = X[col].nunique(dropna=True)
@@ -223,7 +232,7 @@ class DataCleaner:
             if df_meta.get(dtype) is None:
                 df_meta[dtype] = []
             df_meta[dtype].append(col_info[0])
-        self.df_meta = df_meta
+        self.df_meta_ = df_meta
         return X, y
 
     def transform(self, X, y=None, copy_data=True):
@@ -232,16 +241,14 @@ class DataCleaner:
             if y is not None:
                 y = copy.deepcopy(y)
         self.clean_data(X, y)
-        if self.df_meta is not None:
+        if self.df_meta_ is not None:
             logger.info('Processing with meta info')
             all_cols = []
-            for dtype, cols in self.df_meta.items():
+            for dtype, cols in self.df_meta_.items():
                 all_cols += cols
                 X[cols] = X[cols].astype(dtype)
             drop_cols = set(X.columns.to_list()) - set(all_cols)
-
-            for c in drop_cols:
-                X.pop(c)
+            X = X[all_cols]
             logger.info(f'droped columns:{drop_cols}')
 
         if self.replace_inf_values is not None:
@@ -249,6 +256,17 @@ class DataCleaner:
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
 
         return X, y
+
+    def append_drop_columns(self, columns):
+        if self.df_meta_ is None:
+            if self.drop_columns is None:
+                self.drop_columns = []
+            self.drop_columns = list(set(self.drop_columns + columns))
+        else:
+            meta = {}
+            for dtype, cols in self.df_meta_.items():
+                meta[dtype] = list(set(cols) - set(columns))
+            self.df_meta_ = meta
 
 
 class FeatureSelectionTransformer():
