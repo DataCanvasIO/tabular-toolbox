@@ -54,3 +54,61 @@ class Test_DataCleaner():
         assert y_t.shape == (5,)
         assert x_t.columns.to_list() == ['x1_int_nanchar', 'x7_dup_f1', 'x5_dup_1']
         assert list(x_t.dtypes.values) == [dtype('float64'), dtype('float64'), dtype('O')]
+
+        cleaner = DataCleaner(nan_chars='\\N',
+                              correct_object_dtype=True,
+                              drop_constant_columns=True,
+                              drop_label_nan_rows=True,
+                              drop_duplicated_columns=False,
+                              replace_inf_values=np.nan
+                              )
+
+        x_t, y_t = cleaner.fit_transform(df, y)
+        assert x_t.shape == (5, 6)
+        assert y_t.shape == (5,)
+        assert x_t.columns.to_list() == ['x1_int_nanchar', 'x5_dup_1', 'x6_dup_2', 'x7_dup_f1', 'x8_dup_f2', 'x9_f']
+        assert list(x_t.dtypes.values) == [dtype('float64'), dtype('O'), dtype('O'), dtype('float64'), dtype('float64'),
+                                           dtype('float64')]
+        assert cleaner.df_meta_ == {'float64': ['x1_int_nanchar', 'x7_dup_f1', 'x8_dup_f2', 'x9_f'],
+                                    'object': ['x5_dup_1', 'x6_dup_2']}
+
+        cleaner = DataCleaner(nan_chars='\\N',
+                              correct_object_dtype=True,
+                              drop_constant_columns=True,
+                              drop_label_nan_rows=False,
+                              drop_duplicated_columns=False,
+                              replace_inf_values=np.nan
+                              )
+
+        x_t, y_t = cleaner.fit_transform(df, y)
+        assert x_t.shape == (6, 6)
+        assert y_t.shape == (6,)
+
+        cleaner = DataCleaner(nan_chars='\\N',
+                              correct_object_dtype=False,
+                              drop_constant_columns=True,
+                              drop_label_nan_rows=False,
+                              drop_duplicated_columns=False,
+                              replace_inf_values=np.nan
+                              )
+
+        x_t, y_t = cleaner.fit_transform(df, y)
+        assert x_t.shape == (6, 6)
+        assert y_t.shape == (6,)
+        assert x_t.columns.to_list() == ['x1_int_nanchar', 'x5_dup_1', 'x6_dup_2', 'x7_dup_f1', 'x8_dup_f2', 'x9_f']
+        assert list(x_t.dtypes.values) == [dtype('O'), dtype('O'), dtype('O'), dtype('float64'), dtype('float64'),
+                                           dtype('float64')]
+        assert cleaner.df_meta_ == {'object': ['x1_int_nanchar', 'x5_dup_1', 'x6_dup_2'],
+                                    'float64': ['x7_dup_f1', 'x8_dup_f2', 'x9_f']}
+
+        cleaner = DataCleaner(nan_chars='\\N',
+                              correct_object_dtype=False,
+                              drop_constant_columns=False,
+                              drop_label_nan_rows=False,
+                              drop_duplicated_columns=False,
+                              replace_inf_values=np.nan
+                              )
+
+        x_t, y_t = cleaner.fit_transform(df, y)
+        assert x_t.shape == (6, 10)
+        assert y_t.shape == (6,)
