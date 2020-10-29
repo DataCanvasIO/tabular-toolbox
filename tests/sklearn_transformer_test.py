@@ -119,10 +119,15 @@ class Test_Transformer():
     def test_feature_selection(self):
         df = dsutils.load_bank()
         y = df.pop('y')
-        fse = FeatureSelectionTransformer('classification', 10000, 10000, 10, n_max_cols=8)
+        reserved_cols = ['age', 'poutcome', 'id']
+        fse = FeatureSelectionTransformer('classification', 10000, 10000, 10, n_max_cols=8, reserved_cols=reserved_cols)
         fse.fit(df, y)
         assert len(fse.scores_.items()) == 10
-        assert len(fse.columns_) == 8
+        assert len(fse.columns_) == 11
+        assert len(set(reserved_cols) - set(fse.columns_)) == 0
+
+        x_t = fse.transform(df)
+        assert x_t.columns.to_list() == fse.columns_
 
         df = dsutils.load_bank()
         y = df.pop('age')

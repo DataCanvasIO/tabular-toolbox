@@ -252,8 +252,8 @@ class DataCleaner:
 
 
 class FeatureSelectionTransformer():
-    def __init__(self, task, max_train_samples=10000, max_test_samples=10000, max_cols=10000, ratio_max_cols=0.05,
-                 n_max_cols=60):
+    def __init__(self, task, max_train_samples=10000, max_test_samples=10000, max_cols=10000, ratio_select_cols=0.1,
+                 n_max_cols=100, n_min_cols=10, reserved_cols=None):
         self.task = task
         if max_cols <= 0:
             max_cols = 10000
@@ -265,8 +265,10 @@ class FeatureSelectionTransformer():
         self.max_train_samples = max_train_samples
         self.max_test_samples = max_test_samples
         self.max_cols = max_cols
-        self.ratio_max_cols = ratio_max_cols
+        self.ratio_select_cols = ratio_select_cols
         self.n_max_cols = n_max_cols
+        self.n_min_cols = n_min_cols
+        self.reserved_cols = reserved_cols
         self.scores_ = {}
         self.columns_ = []
 
@@ -306,10 +308,23 @@ class FeatureSelectionTransformer():
     def fit(self, X, y):
         start_time = time.time()
         columns = X.columns.to_list()
+        logger.info(f'all columns: {columns}')
+        if self.reserved_cols is not None:
+            self.reserved_cols = list(set(self.reserved_cols).intersection(columns))
+            logger.info(f'exclude reserved columns: {self.reserved_cols}')
+            columns = list(set(columns) - set(self.reserved_cols))
+
         if len(columns) > self.max_cols:
             columns = np.random.choice(columns, self.max_cols, replace=False)
 
-        X_train, X_test, y_train, y_test = subsample(X, y,
+        if len(columns) <= 0:
+            logger.warn('no columns to score')
+            self.columns_ = self.reserved_cols
+            self.scores_ = {}
+            return self
+
+        X_score = X[columns]
+        X_train, X_test, y_train, y_test = subsample(X_score, y,
                                                      max_samples=self.max_test_samples + self.max_train_samples,
                                                      train_samples=self.max_train_samples,
                                                      task=self.task)
@@ -342,10 +357,20 @@ class FeatureSelectionTransformer():
 
         sorted_scores = sorted([[col, score] for col, score in self.scores_.items()], key=lambda x: x[1])
         logger.info(f'feature scores:{sorted_scores}')
-        topn = np.min([np.max([int(len(columns) * self.ratio_max_cols), 10]), self.n_max_cols])
-        self.columns_ = [s[0] for s in sorted_scores[:topn]]
+        topn = np.min([np.max([int(len(columns) * self.ratio_select_cols), np.min([len(columns), self.n_min_cols])]),
+                       self.n_max_cols])
+        if self.reserved_cols is not None:
+            self.columns_ = self.reserved_cols
+        else:
+            self.columns_ = []
+        self.columns_ += [s[0] for s in sorted_scores[:topn]]
+
         logger.info(f'selected columns:{self.columns_}')
         logger.info(f'taken {time.time() - start_time}s')
+
+        del X_score, X_train, X_test, y_train, y_test
+
+        return self
 
     def transform(self, X):
         return X[self.columns_]
