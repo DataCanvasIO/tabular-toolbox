@@ -11,7 +11,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures
 from tabular_toolbox.column_selector import *
 from tabular_toolbox.dataframe_mapper import DataFrameMapper
-from tabular_toolbox.sklearn_ex import MultiLabelEncoder, FeatureSelectionTransformer, subsample
+from tabular_toolbox.sklearn_ex import MultiLabelEncoder, FeatureSelectionTransformer, SafeOrdinalEncoder, subsample
 from tabular_toolbox.datasets import dsutils
 
 
@@ -135,3 +135,27 @@ class Test_Transformer():
         fse.fit(df, y)
         assert len(fse.scores_.items()) == 17
         assert len(fse.columns_) == 10
+
+    def test_ordinal_encoder(self):
+        df1 = pd.DataFrame({"A": [1, 2, 3, 4],
+                            "B": ['a', 'a', 'a', 'b']})
+        df2 = pd.DataFrame({"A": [1, 2, 3, 5],
+                            "B": ['a', 'b', 'z', '0']})
+
+        ec = SafeOrdinalEncoder(dtype=np.int32)
+        df = ec.fit_transform(df1)
+        df_expect = pd.DataFrame({"A": [0, 1, 2, 3],
+                                  "B": [0, 0, 0, 1]})
+        # diff = (df - df_expect).values
+        # assert np.count_nonzero(diff) == 0
+        assert np.where(df_expect.values == df.values, 0, 1).sum() == 0
+
+        df = ec.transform(df2)
+        df_expect = pd.DataFrame({"A": [0, 1, 2, 4],
+                                  "B": [0, 1, 2, 2]})
+        assert np.where(df_expect.values == df.values, 0, 1).sum() == 0
+
+        df = ec.inverse_transform(df_expect)
+        df_expect = pd.DataFrame({"A": [1, 2, 3, -1],
+                                  "B": ['a', 'b', None, None]})
+        assert np.where(df_expect.values == df.values, 0, 1).sum() == 0

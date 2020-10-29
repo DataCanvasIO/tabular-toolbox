@@ -158,3 +158,182 @@ class MaxAbsScaler(sk_pre.MaxAbsScaler):
 
         return X
 
+
+class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
+    __doc__ = r'Adapted from dask_ml OrdinalEncoder\n' + dm_pre.OrdinalEncoder.__doc__
+
+    def __init__(self, columns=None, dtype=np.float64):
+        self.columns = columns
+        self.dtype = dtype
+
+    def fit(self, X, y=None):
+        """Determine the categorical columns to be encoded.
+
+        Parameters
+        ----------
+        X : pandas.DataFrame or dask.dataframe.DataFrame
+        y : ignored
+
+        Returns
+        -------
+        self
+        """
+        self.columns_ = X.columns
+        self.dtypes_ = {c: X[c].dtype for c in X.columns}
+
+        if self.columns is None:
+            columns = X.select_dtypes(include=["category", 'object']).columns
+        else:
+            columns = self.columns
+
+        X = X.categorize(columns=columns)
+
+        self.categorical_columns_ = columns
+        self.non_categorical_columns_ = X.columns.drop(self.categorical_columns_)
+        self.categories_ = {c: X[c].cat.categories.sort_values() for c in columns}
+
+        def make_encoder(columns, categories, dtype):
+            encoders = {}
+            for col in columns:
+                cat = categories[col]
+                unseen = len(cat)
+                m = dict(zip(cat, range(unseen)))
+                vf = np.vectorize(lambda x: m[x] if x in m.keys() else unseen)
+                encoders[col] = vf
+
+            def pdf_encoder(pdf):
+                assert isinstance(pdf, pd.DataFrame)
+
+                pdf = pdf.copy()
+                for col in columns:
+                    # r = np.searchsorted(categories[col], pdf[col].values)
+                    r = encoders[col](pdf[col].values)
+                    if r.dtype != dtype:
+                        r = r.astype(dtype)
+                    pdf[col] = r
+                return pdf
+
+            return pdf_encoder
+
+        def make_decoder(columns, categories, dtypes):
+            decoders = {}
+            for col in columns:
+                dtype = dtypes[col]
+                if dtype in (np.float32, np.float64, np.float):
+                    default_value = np.nan
+                elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
+                    default_value = -1
+                else:
+                    default_value = None
+                    dtype = np.object
+
+                cat = categories[col]
+                unseen = cat.shape[0]  # len(cat)
+                vf = np.vectorize(lambda x: cat[x] if unseen > x >= 0 else default_value,
+                                  otypes=[dtype])
+                decoders[col] = vf
+
+            def pdf_decoder(pdf):
+                assert isinstance(pdf, pd.DataFrame)
+
+                pdf = pdf.copy()
+                for col in columns:
+                    # cat = categories[col]
+                    # cat_count = cat.shape[0]
+                    # pdf[col] = pdf[col].map(lambda x: cat[x] if x < cat_count else missing_value)
+                    pdf[col] = decoders[col](pdf[col].values)
+                return pdf
+
+            return pdf_decoder
+
+        self.encoder_ = make_encoder(self.categorical_columns_, self.categories_, self.dtype)
+        self.decoder_ = make_decoder(self.categorical_columns_, self.categories_, self.dtypes_)
+        return self
+
+    def transform(self, X, y=None):
+        """Ordinal encode the categorical columns in X
+
+        Parameters
+        ----------
+        X : pd.DataFrame or dd.DataFrame
+        y : ignored
+
+        Returns
+        -------
+        transformed : pd.DataFrame or dd.DataFrame
+            Same type as the input
+        """
+        if not X.columns.equals(self.columns_):
+            raise ValueError(
+                "Columns of 'X' do not match the training "
+                "columns. Got {!r}, expected {!r}".format(X.columns, self.columns)
+            )
+        #
+        # def pdf_encoder(pdf, columns, categories, dtype):
+        #     assert isinstance(pdf, pd.DataFrame)
+        #
+        #     pdf = pdf.copy()
+        #     for col in columns:
+        #         r = np.searchsorted(categories[col], pdf[col].values)
+        #         if r.dtype != dtype:
+        #             r = r.astype(dtype)
+        #         pdf[col] = r
+        #     return pdf
+
+        if isinstance(X, pd.DataFrame):
+            # X = pdf_encoder(X, self.categorical_columns_, self.categories_, self.dtype)
+            X = self.encoder_(X)
+        elif isinstance(X, dd.DataFrame):
+            # X = X.map_partitions(pdf_encoder, self.categorical_columns_, self.categories_, self.dtype)
+            X = X.map_partitions(self.encoder_)
+        else:
+            raise TypeError("Unexpected type {}".format(type(X)))
+
+        return X
+
+    def inverse_transform(self, X, missing_value=None):
+        """Inverse ordinal-encode the columns in `X`
+
+        Parameters
+        ----------
+        X : array or dataframe
+            Either the NumPy, dask, or pandas version
+
+        missing_value : skip doc
+
+        Returns
+        -------
+        data : DataFrame
+            Dask array or dataframe will return a Dask DataFrame.
+            Numpy array or pandas dataframe will return a pandas DataFrame
+        """
+        #
+        # def pdf_decoder(pdf, columns, categories):
+        #     pdf = pdf.copy()
+        #     for col in columns:
+        #         cat = categories[col]
+        #         cat_count = cat.shape[0]
+        #         pdf[col] = pdf[col].map(lambda x: cat[x] if x < cat_count else missing_value)
+        #     return pdf
+
+        if isinstance(X, np.ndarray):
+            X = pd.DataFrame(X, columns=self.columns_)
+        elif isinstance(X, da.Array):
+            # later on we concat(..., axis=1), which requires
+            # known divisions. Suboptimal, but I think unavoidable.
+            unknown = np.isnan(X.chunks[0]).any()
+            if unknown:
+                lengths = da.blockwise(len, "i", X[:, 0], "i", dtype="i8").compute()
+                X = X.copy()
+                chunks = (tuple(lengths), X.chunks[1])
+                X._chunks = chunks
+            X = dd.from_dask_array(X, columns=self.columns_)
+
+        if isinstance(X, dd.DataFrame):
+            # X = X.map_partitions(pdf_decoder, self.categorical_columns_, self.categories_)
+            X = X.map_partitions(self.decoder_)
+        else:
+            # X = pdf_decoder(X, self.categorical_columns_, self.categories_)
+            X = self.decoder_(X)
+
+        return X
