@@ -103,6 +103,7 @@ class SafeOrdinalEncoder(OrdinalEncoder):
                 default_value = -1
             else:
                 default_value = None
+                dtype = np.object
             unseen = len(categories)
             vf = np.vectorize(lambda x: categories[x] if unseen > x >= 0 else default_value,
                               otypes=[dtype])

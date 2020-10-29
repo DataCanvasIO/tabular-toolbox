@@ -206,7 +206,6 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
 
                 pdf = pdf.copy()
                 for col in columns:
-                    # r = np.searchsorted(categories[col], pdf[col].values)
                     r = encoders[col](pdf[col].values)
                     if r.dtype != dtype:
                         r = r.astype(dtype)
@@ -238,9 +237,6 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
 
                 pdf = pdf.copy()
                 for col in columns:
-                    # cat = categories[col]
-                    # cat_count = cat.shape[0]
-                    # pdf[col] = pdf[col].map(lambda x: cat[x] if x < cat_count else missing_value)
                     pdf[col] = decoders[col](pdf[col].values)
                 return pdf
 
@@ -268,17 +264,6 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
                 "Columns of 'X' do not match the training "
                 "columns. Got {!r}, expected {!r}".format(X.columns, self.columns)
             )
-        #
-        # def pdf_encoder(pdf, columns, categories, dtype):
-        #     assert isinstance(pdf, pd.DataFrame)
-        #
-        #     pdf = pdf.copy()
-        #     for col in columns:
-        #         r = np.searchsorted(categories[col], pdf[col].values)
-        #         if r.dtype != dtype:
-        #             r = r.astype(dtype)
-        #         pdf[col] = r
-        #     return pdf
 
         if isinstance(X, pd.DataFrame):
             # X = pdf_encoder(X, self.categorical_columns_, self.categories_, self.dtype)
@@ -307,15 +292,6 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
             Dask array or dataframe will return a Dask DataFrame.
             Numpy array or pandas dataframe will return a pandas DataFrame
         """
-        #
-        # def pdf_decoder(pdf, columns, categories):
-        #     pdf = pdf.copy()
-        #     for col in columns:
-        #         cat = categories[col]
-        #         cat_count = cat.shape[0]
-        #         pdf[col] = pdf[col].map(lambda x: cat[x] if x < cat_count else missing_value)
-        #     return pdf
-
         if isinstance(X, np.ndarray):
             X = pd.DataFrame(X, columns=self.columns_)
         elif isinstance(X, da.Array):
@@ -330,10 +306,8 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
             X = dd.from_dask_array(X, columns=self.columns_)
 
         if isinstance(X, dd.DataFrame):
-            # X = X.map_partitions(pdf_decoder, self.categorical_columns_, self.categories_)
             X = X.map_partitions(self.decoder_)
         else:
-            # X = pdf_decoder(X, self.categorical_columns_, self.categories_)
             X = self.decoder_(X)
 
         return X
