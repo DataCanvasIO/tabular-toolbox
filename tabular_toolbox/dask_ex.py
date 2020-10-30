@@ -266,10 +266,8 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
             )
 
         if isinstance(X, pd.DataFrame):
-            # X = pdf_encoder(X, self.categorical_columns_, self.categories_, self.dtype)
             X = self.encoder_(X)
         elif isinstance(X, dd.DataFrame):
-            # X = X.map_partitions(pdf_encoder, self.categorical_columns_, self.categories_, self.dtype)
             X = X.map_partitions(self.encoder_)
         else:
             raise TypeError("Unexpected type {}".format(type(X)))
