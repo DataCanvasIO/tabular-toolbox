@@ -3,6 +3,7 @@
 
 """
 import numpy as np
+import pandas as pd
 from dask import dataframe as dd
 from scipy.stats import skew, kurtosis
 from sklearn.compose import make_column_selector
@@ -13,21 +14,83 @@ class HyperColumnSelector(make_column_selector):
 
     def __call__(self, df):
         if isinstance(df, dd.DataFrame):
-            # if not hasattr(df, 'iloc'):
-            #     raise ValueError("make_column_selector can only be applied to "
-            #                      "pandas dataframes")
-            # df_row = df.iloc[:1]
-            df_row = df
-
-            if self.dtype_include is not None or self.dtype_exclude is not None:
-                df_row = df_row.select_dtypes(include=self.dtype_include,
-                                              exclude=self.dtype_exclude)
-            cols = df_row.columns
-            if self.pattern is not None:
-                cols = cols[cols.str.contains(self.pattern, regex=True)]
-            return cols.tolist()
+            # # if not hasattr(df, 'iloc'):
+            # #     raise ValueError("make_column_selector can only be applied to "
+            # #                      "pandas dataframes")
+            # # df_row = df.iloc[:1]
+            # df_row = df
+            #
+            # if self.dtype_include is not None or self.dtype_exclude is not None:
+            #     df_row = df_row.select_dtypes(include=self.dtype_include,
+            #                                   exclude=self.dtype_exclude)
+            # cols = df_row.columns
+            # if self.pattern is not None:
+            #     cols = cols[cols.str.contains(self.pattern, regex=True)]
+            # return cols.tolist()
+            df = df.head(1)
 
         return super(HyperColumnSelector, self).__call__(df)
+
+
+class MinMaxColumnSelector(object):
+    def __init__(self, min=None, max=None):
+        self.min = min
+        self.max = max
+
+    def __call__(self, df):
+        if isinstance(df, dd.DataFrame):
+            return self._select_dask_dataframe(df)
+        elif isinstance(df, pd.DataFrame):
+            return self._select_pandas_dataframe(df)
+        else:
+            raise ValueError(f'Unsupported dataframe type "{type(df)}"')
+
+    def _select_pandas_dataframe(self, df):
+        if self.min is not None and self.max is not None:
+            df = df.aggregate(['min', 'max'])
+            df = df.loc[:, (df.loc['min'] >= self.min) & (df.loc['max'] <= self.max)]
+        elif self.min is not None:
+            df = df.aggregate(['min'])
+            df = df.loc[:, df.loc['min'] >= self.min]
+        elif self.max is not None:
+            df = df.aggregate(['max'])
+            df = df.loc[:, df.loc['max'] <= self.max]
+
+        return list(df.columns)
+
+    def _select_dask_dataframe(self, df):
+        if self.min is not None and self.max is not None:
+            df = pd.DataFrame({'min': df.reduction(np.min, np.min).compute(),
+                               'max': df.reduction(np.max, np.max).compute()
+                               }).T
+            df = df.loc[:, (df.loc['min'] >= self.min) & (df.loc['max'] <= self.max)]
+        elif self.min is not None:
+            df = pd.DataFrame({'min': df.reduction(np.min, np.min).compute()
+                               }).T
+            df = df.loc[:, df.loc['min'] >= self.min]
+        elif self.max is not None:
+            df = pd.DataFrame({'max': df.reduction(np.max, np.max).compute()
+                               }).T
+            df = df.loc[:, df.loc['max'] <= self.max]
+
+        return list(df.columns)
+
+
+class CompositedColumnSelector(object):
+    def __init__(self, selectors):
+        assert isinstance(selectors, (tuple, list)) and len(selectors) > 0
+        self.selectors = selectors
+
+    def __call__(self, df):
+        n = len(self.selectors)
+        for i, selector in enumerate(self.selectors):
+            columns = selector(df)
+            if (i == n - 1) or len(columns) == 0:
+                return columns
+
+            df = df[columns]
+
+        return list(df.columns)  # un-reached
 
 
 column_object_category_bool = HyperColumnSelector(dtype_include=['object', 'category', 'bool'])
@@ -42,6 +105,21 @@ column_datetimetz = HyperColumnSelector(dtype_include='datetimetz')
 column_datetime = HyperColumnSelector(dtype_include='datetime')
 column_all_datetime = HyperColumnSelector(dtype_include=['datetime', 'datetimetz'])
 column_int = HyperColumnSelector(dtype_include=['int16', 'int32', 'int64'])
+
+column_zero_or_positive_int32 = CompositedColumnSelector(
+    selectors=[column_int,
+               MinMaxColumnSelector(0, np.iinfo(np.int32).max)]
+)
+
+column_positive_int32 = CompositedColumnSelector(
+    selectors=[column_int,
+               MinMaxColumnSelector(1, np.iinfo(np.int32).max)]
+)
+
+
+def column_min_max(X, min_value=None, max_value=None):
+    selector = MinMaxColumnSelector(min_value, max_value)
+    return selector(X)
 
 
 def column_skewness_kurtosis(X, skew_threshold=0.5, kurtosis_threshold=0.5, columns=None):
