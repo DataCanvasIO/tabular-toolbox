@@ -50,6 +50,8 @@ def feature_selection(X_train, X_test, remove_shift_variable=True, auc_threshold
         for col, score in scores.items():
             if score <= 0.7:
                 remain_features.append(col)
+            else:
+                logger.info(f'Remove shift varibale:{col},  score:{score}')
         if len(remain_features) < X_train.shape[1]:
             X_train = X_train[remain_features]
             X_test = X_test[remain_features]
@@ -57,7 +59,7 @@ def feature_selection(X_train, X_test, remove_shift_variable=True, auc_threshold
     while True:
         detector = DriftDetector(preprocessor, estimator, random_state)
         detector.fit(X_train, X_test, sample_balance=sample_balance, max_test_samples=max_test_samples, cv=cv)
-
+        logger.info(f'AUC:{detector.auc_}, Features:{detector.feature_names_}')
         if detector.auc_ <= auc_threshold:
             return detector.feature_names_
 
@@ -126,15 +128,18 @@ class DriftDetector():
 
         target_col = '__drift_detection_target__'
 
-        X_train[target_col] = 0
-        X_test[target_col] = 1
+        X_train.loc[:, target_col] = 0
+        X_test.loc[:, target_col] = 1
 
         X_merge = pd.concat([X_train, X_test], axis=0)
         y = X_merge.pop(target_col)
 
         cat_cols = column_object_category_bool(X_merge)
         num_cols = column_number_exclude_timedelta(X_merge)
-        X_merge[cat_cols + num_cols] = self.preprocessor.fit_transform(X_merge)
+        logger.info('preprocessing...')
+        X_merge.loc[:, cat_cols + num_cols] = self.preprocessor.fit_transform(X_merge)
+        logger.info('preprocess finished')
+
         self.feature_names_ = X_merge.columns.to_list()
         iterators = StratifiedKFold(n_splits=cv, shuffle=True, random_state=1001)
 
@@ -155,6 +160,7 @@ class DriftDetector():
             if isinstance(estimator, LGBMClassifier):
                 kwargs['eval_set'] = (x_val_fold, y_val_fold)
                 kwargs['early_stopping_rounds'] = 10
+                kwargs['verbose'] = 0
 
             estimator.fit(x_train_fold, y_train_fold, **kwargs)
             proba = estimator.predict_proba(x_val_fold)[:, 1:2]
@@ -175,7 +181,7 @@ class DriftDetector():
 
         cat_cols = column_object_category_bool(X)
         num_cols = column_number_exclude_timedelta(X)
-        X[cat_cols + num_cols] = self.preprocessor.transform(X)
+        X.loc[:, cat_cols + num_cols] = self.preprocessor.transform(X)
         oof_proba = []
         for i, estimator in enumerate(self.estimator_):
             oof_proba.append(estimator.predict_proba(X)[:, 1])
@@ -197,8 +203,8 @@ def covariate_shift_score(X_train, X_test, scorer=roc_auc_scorer, cv=None, copy_
         test = X_test
 
     # Set target value
-    train[target_col] = 0
-    test[target_col] = 1
+    train.loc[:, target_col] = 0
+    test.loc[:, target_col] = 1
     mixed = pd.concat([train, test], axis=0)
     y = mixed.pop(target_col)
 
@@ -207,7 +213,7 @@ def covariate_shift_score(X_train, X_test, scorer=roc_auc_scorer, cv=None, copy_
     cat_cols = column_object_category_bool(mixed)
     num_cols = column_number_exclude_timedelta(mixed)
     preprocessor = general_preprocessor()
-    mixed[cat_cols + num_cols] = preprocessor.fit_transform(mixed)
+    mixed.loc[:, cat_cols + num_cols] = preprocessor.fit_transform(mixed)
 
     # Calculate the shift score for each column separately.
     scores = {}
