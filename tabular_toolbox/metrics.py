@@ -6,7 +6,7 @@ import dask_ml.metrics as dm_metrics
 import numpy as np
 from dask import dataframe as dd, array as da
 from sklearn import metrics as sk_metrics
-
+from .dask_ex import to_dask_type as _to_dask_type
 from .utils import logging
 
 logger = logging.getLogger(__name__)
@@ -90,6 +90,11 @@ def _calc_score_sklean(y_true, y_preds, y_proba=None, metrics=['accuracy'], task
 
 def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task='binary', pos_label=1):
     score = {}
+
+    y_true = _to_dask_type(y_true)
+    y_preds = _to_dask_type(y_preds)
+    y_proba = _to_dask_type(y_proba)
+
     if y_proba is None:
         y_proba = y_preds
     if len(y_proba.shape) == 2 and y_proba.shape[-1] == 1:

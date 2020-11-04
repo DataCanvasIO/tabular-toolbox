@@ -12,6 +12,15 @@ from sklearn import preprocessing as sk_pre
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
+def to_dask_type(X):
+    if isinstance(X, np.ndarray):
+        X = da.from_array(X)
+    elif isinstance(X, (pd.DataFrame, pd.Series)):
+        X = dd.from_pandas(X, npartitions=2)
+
+    return X
+
+
 class MultiLabelEncoder(BaseEstimator, TransformerMixin):
     def __init__(self):
         self.encoders = {}
@@ -43,9 +52,9 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
     def transform(self, X):
         assert len(X.shape) == 2
 
-        if isinstance(X, dd.DataFrame):
+        if isinstance(X, (dd.DataFrame, pd.DataFrame)):
             return self._transform_dask_df(X)
-        elif isinstance(X, da.Array):
+        elif isinstance(X, (da.Array, np.ndarray)):
             return self._transform_dask_array(X)
         else:
             raise Exception(f'Unsupported type "{type(X)}"')
@@ -53,7 +62,11 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
     def _transform_dask_df(self, X):
         data = self._transform_dask_array(X.values)
 
-        return dd.from_dask_array(data, columns=X.columns)
+        if isinstance(X, dd.DataFrame):
+            result = dd.from_dask_array(data, columns=X.columns)
+        else:
+            result = pd.DataFrame(data, columns=X.columns)
+        return result
 
     def _transform_dask_array(self, X):
         n_features = X.shape[1]
@@ -63,7 +76,12 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
         for n in range(n_features):
             data.append(self.encoders[n].transform(X[:, n]))
 
-        return da.stack(data, axis=-1, allow_unknown_chunksizes=True)
+        if isinstance(X, da.Array):
+            result = da.stack(data, axis=-1, allow_unknown_chunksizes=True)
+        else:
+            result = np.stack(data, axis=-1)
+
+        return result
 
     # def fit_transform(self, X, y=None):
     #     return self.fit(X, y).transform(X)
@@ -71,15 +89,23 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
 
 class OneHotEncoder(dm_pre.OneHotEncoder):
     def fit(self, X, y=None):
-        if isinstance(X, dd.DataFrame) and self.categories == "auto" \
+        if isinstance(X, (dd.DataFrame, pd.DataFrame)) and self.categories == "auto" \
                 and any(d.name == 'object' for d in X.dtypes):
             a = []
-            for i in range(len(X.columns)):
-                Xi = X.iloc[:, i]
-                if Xi.dtype == 'object':
-                    Xi = Xi.astype('category').cat.as_known()
-                a.append(Xi)
-            X = dd.concat(a, axis=1)
+            if isinstance(X, dd.DataFrame):
+                for i in range(len(X.columns)):
+                    Xi = X.iloc[:, i]
+                    if Xi.dtype == 'object':
+                        Xi = Xi.astype('category').cat.as_known()
+                    a.append(Xi)
+                X = dd.concat(a, axis=1)
+            else:
+                for i in range(len(X.columns)):
+                    Xi = X.iloc[:, i]
+                    if Xi.dtype == 'object':
+                        Xi = Xi.astype('category')
+                    a.append(Xi)
+                X = pd.concat(a, axis=1)
 
         return super(OneHotEncoder, self).fit(X, y)
 
@@ -91,11 +117,18 @@ class OneHotEncoder(dm_pre.OneHotEncoder):
 
 class TruncatedSVD(dm_dec.TruncatedSVD):
     def fit_transform(self, X, y=None):
+        X_orignal = X
+        if isinstance(X, pd.DataFrame):
+            X = dd.from_pandas(X, npartitions=2)
+
         if isinstance(X, dd.DataFrame):
             r = super(TruncatedSVD, self).fit_transform(X.values, y)
-            return r  # fixme, restore to DataFrame ??
+        else:
+            r = super(TruncatedSVD, self).fit_transform(X, y)
 
-        return super(TruncatedSVD, self).fit_transform(X, y)
+        if isinstance(X_orignal, (pd.DataFrame, np.ndarray)):
+            r = r.compute()
+        return r  # fixme, restore to DataFrame ??
 
     def transform(self, X, y=None):
         if isinstance(X, dd.DataFrame):
@@ -117,6 +150,8 @@ class MaxAbsScaler(sk_pre.MaxAbsScaler):
         from dask_ml.utils import handle_zeros_in_scale
 
         self._reset()
+        if isinstance(X, (pd.DataFrame, np.ndarray)):
+            return super().partial_fit(X, y)
 
         max_abs = X.reduction(lambda x: x.abs().max(),
                               aggregate=lambda x: x.max(),
@@ -135,6 +170,9 @@ class MaxAbsScaler(sk_pre.MaxAbsScaler):
         raise NotImplementedError()
 
     def transform(self, X, y=None, copy=None, ):
+        if isinstance(X, (pd.DataFrame, np.ndarray)):
+            return super().transform(X)
+
         # Workaround for https://github.com/dask/dask/issues/2840
         if isinstance(X, dd.DataFrame):
             X = X.div(self.scale_)
@@ -149,6 +187,10 @@ class MaxAbsScaler(sk_pre.MaxAbsScaler):
                 "Call 'fit' with appropriate arguments before "
                 "using this method."
             )
+
+        if isinstance(X, (pd.DataFrame, np.ndarray)):
+            return super().inverse_transform(X)
+
         if copy:
             X = X.copy()
         if isinstance(X, dd.DataFrame):
