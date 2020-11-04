@@ -16,6 +16,9 @@ from scipy import sparse
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import _name_estimators, Pipeline
 from sklearn.utils import tosequence
+from .utils import logging
+
+logger = logging.get_logger(__name__)
 
 
 def _call_fit(fit_method, X, y=None, **kwargs):
@@ -314,10 +317,12 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
 
         """
         self._build()
-
         for columns, transformers, options in self.built_features:
+            logger.debug(f'columns:({columns}), transformers:({transformers}), options:({options})')
             if callable(columns):
                 columns = columns(X)
+            if columns is None or len(columns) <= 0:
+                continue
             input_df = options.get('input_df', self.input_df)
 
             if transformers is not None:
@@ -342,6 +347,8 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
         x             transformed columns (numpy.ndarray)
         alias         base name to use for the selected columns
         """
+        logger.debug(
+            f'get_names: {isinstance(columns, list)}, len(columns):{len(columns)} columns:{columns}, alias:{alias}')
         if alias is not None:
             name = alias
         elif isinstance(columns, list):
@@ -356,20 +363,24 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
             # If we are dealing with multiple transformers for these columns
             # attempt to extract the names from each of them, starting from the
             # last one
+            logger.debug(f'transformer:{transformer}')
             if isinstance(transformer, (TransformerPipeline, Pipeline)):
                 inverse_steps = transformer.steps[::-1]
                 estimators = (estimator for name, estimator in inverse_steps)
                 names_steps = (_get_feature_names(e, columns) for e in estimators)
                 names = next((n for n in names_steps if n is not None), None)
+
                 if names is None and len(columns) == num_cols:
                     names = list(columns)
             # Otherwise use the only estimator present
             else:
                 names = _get_feature_names(transformer, columns)
             if names is not None and len(names) == num_cols:
+                logger.debug(f'names:{names}')
                 return list(names)  # ['%s_%s' % (name, o) for o in names]
             # otherwise, return name concatenated with '_1', '_2', etc.
             else:
+                logger.debug(f'names:{names}')
                 return [name + '_' + str(o) for o in range(num_cols)]
         else:
             return [name]
@@ -417,10 +428,11 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
                             _call_fit(transformers.fit, Xt, y)
                         Xt = transformers.transform(Xt)
             extracted.append(_handle_feature(Xt))
-
+            logger.debug(f'columns:{columns}')
             alias = options.get('alias')
             self.transformed_names_ += self.get_names(
                 columns, transformers, Xt, alias)
+            logger.debug(f'transformed_names_:{self.transformed_names_}')
 
         # handle features not explicitly selected
         if self.built_default is not False:
