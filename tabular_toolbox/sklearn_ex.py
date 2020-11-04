@@ -198,9 +198,7 @@ def reduce_mem_usage(df, verbose=True):
                 elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
                     df[col] = df[col].astype(np.int64)
             else:
-                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
-                    df[col] = df[col].astype(np.float16)
-                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                if c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
                     df[col] = df[col].astype(np.float32)
                 else:
                     df[col] = df[col].astype(np.float64)
@@ -377,7 +375,7 @@ class FeatureSelectionTransformer():
                   # eval_set=(F_test, y_test),
                   # early_stopping_rounds=20,
                   # verbose=0,
-                  categorical_feature=cat_cols,
+                  # categorical_feature=cat_cols,
                   # eval_metric=eval_metric,
                   )
         if self.task == 'regression':
@@ -437,6 +435,7 @@ class FeatureSelectionTransformer():
             F_train = X_train[[c]]
             F_test = X_test[[c]]
             self.scores_[c] = self.feature_score(F_train, y_train, F_test, y_test)
+            logger.info(f'Feature score: {c}={self.scores_[c]}')
 
         sorted_scores = sorted([[col, score] for col, score in self.scores_.items()], key=lambda x: x[1])
         logger.info(f'feature scores:{sorted_scores}')
