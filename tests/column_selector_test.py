@@ -28,6 +28,9 @@ class Test_ColumnSelector():
             }
         )
 
+        all = column_all(df)
+        assert all == ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']
+
         num = column_number(df)
         assert num == ['b', 'c', 'd', 'k']
 

@@ -7,6 +7,7 @@ import pandas as pd
 from dask import dataframe as dd
 from scipy.stats import skew, kurtosis
 from sklearn.compose import make_column_selector
+from pandas import DataFrame
 
 
 class HyperColumnSelector(make_column_selector):
@@ -93,6 +94,7 @@ class CompositedColumnSelector(object):
         return list(df.columns)  # un-reached
 
 
+column_all = HyperColumnSelector()
 column_object_category_bool = HyperColumnSelector(dtype_include=['object', 'category', 'bool'])
 column_object = HyperColumnSelector(dtype_include=['object'])
 column_category = HyperColumnSelector(dtype_include=['category'])
@@ -105,6 +107,8 @@ column_datetimetz = HyperColumnSelector(dtype_include='datetimetz')
 column_datetime = HyperColumnSelector(dtype_include='datetime')
 column_all_datetime = HyperColumnSelector(dtype_include=['datetime', 'datetimetz'])
 column_int = HyperColumnSelector(dtype_include=['int16', 'int32', 'int64'])
+column_exclude_datetime = HyperColumnSelector(
+    dtype_exclude=['timedelta', 'datetime', 'datetimetz', 'period[M]', 'period[D]', 'period[Q]'])
 
 column_zero_or_positive_int32 = CompositedColumnSelector(
     selectors=[column_int,
