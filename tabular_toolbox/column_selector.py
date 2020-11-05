@@ -7,7 +7,6 @@ import pandas as pd
 from dask import dataframe as dd
 from scipy.stats import skew, kurtosis
 from sklearn.compose import make_column_selector
-from pandas import DataFrame
 
 
 class HyperColumnSelector(make_column_selector):
