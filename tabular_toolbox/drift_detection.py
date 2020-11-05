@@ -252,6 +252,37 @@ class DriftDetector():
         proba = np.mean(oof_proba, axis=0)
         return proba
 
+    def train_test_split(self, X, y, test_size=0.25, remain_for_train=0.3):
+        proba = self.predict_proba(X)
+        sorted_indices = np.argsort(proba)
+        target = '__train_test_split_y__'
+        X.insert(0, target, y)
+
+        assert remain_for_train < 1.0 and remain_for_train >= 0, '`remain_for_train` must be < 1.0 and >= 0.'
+        if isinstance(test_size, float):
+            assert test_size < 1.0 and test_size > 0, '`test_size` must be < 1.0 and > 0.'
+            test_size = int(X.shape[0] * test_size)
+        assert isinstance(test_size, int), '`test_size` can only be int or float'
+        split_size = int(test_size + test_size * remain_for_train)
+        assert split_size < X.shape[0], \
+            'test_size+test_size*remain_for_train must be less than the number of samples in X.'
+
+        if remain_for_train == 0:
+            X_train = X.iloc[sorted_indices[:-test_size]]
+            X_test = X.iloc[sorted_indices[-test_size:]]
+            y_train = X_train.pop(target)
+            y_test = X_test.pop(target)
+            return X_train, X_test, y_train, y_test
+        else:
+            X_train_1 = X.iloc[sorted_indices[:-split_size]]
+            X_mixed = X.iloc[sorted_indices[-split_size:]]
+            X_train_2, X_test = train_test_split(X_mixed, test_size=test_size, shuffle=True,
+                                                 random_state=self.random_state)
+            X_train = pd.concat([X_train_1, X_train_2], axis=0)
+            y_train = X_train.pop(target)
+            y_test = X_test.pop(target)
+            return X_train, X_test, y_train, y_test
+
 
 def covariate_shift_score(X_train, X_test, scorer=None, cv=None, copy_data=True):
     assert isinstance(X_train, pd.DataFrame) and isinstance(X_test,

@@ -55,6 +55,14 @@ class Test_drift_detection:
         proba = dd.predict_proba(df)
         assert proba.shape[0] == 10000
 
+        df = load_bank()
+        y = df.pop('y')
+        X_train, X_test, y_train, y_test = dd.train_test_split(df, y, test_size=0.2)
+        assert X_train.shape, (86804, 17)
+        assert y_train.shape, (86804,)
+        assert X_test.shape, (21700, 17)
+        assert y_test.shape, (21700,)
+
     def test_drift_detector_fit_decisiontree(self):
         df = load_bank().head(10000)
         y = df.pop('y')
