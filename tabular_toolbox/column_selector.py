@@ -2,6 +2,7 @@
 """
 
 """
+import dask
 import numpy as np
 import pandas as pd
 from dask import dataframe as dd
@@ -60,8 +61,9 @@ class MinMaxColumnSelector(object):
 
     def _select_dask_dataframe(self, df):
         if self.min is not None and self.max is not None:
-            df = pd.DataFrame({'min': df.reduction(np.min, np.min).compute(),
-                               'max': df.reduction(np.max, np.max).compute()
+            min_values, max_values = dask.compute(df.reduction(np.min, np.min),
+                                                  df.reduction(np.max, np.max))
+            df = pd.DataFrame({'min': min_values, 'max': max_values
                                }).T
             df = df.loc[:, (df.loc['min'] >= self.min) & (df.loc['max'] <= self.max)]
         elif self.min is not None:
