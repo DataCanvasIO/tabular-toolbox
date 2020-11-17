@@ -12,5 +12,5 @@ def load_bank():
 
 def load_bank_by_dask():
     from dask import dataframe as dd
-    data = dd.read_csv(f'{basedir}/bank-uci.csv.gz', compression='gzip')
+    data = dd.read_csv(f'{basedir}/bank-uci.csv.gz', compression='gzip', blocksize=None)
     return data
