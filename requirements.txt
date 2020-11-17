@@ -7,3 +7,4 @@ six
 dask
 dask-ml
 lightgbm
+pyarrow
