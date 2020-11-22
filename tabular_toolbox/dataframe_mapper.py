@@ -475,7 +475,10 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
         # If any of the extracted features is sparse, combine sparsely.
         # Otherwise, combine as normal arrays.
         if isinstance(X, dd.DataFrame):
-            stacked = da.hstack(extracted, allow_unknown_chunksizes=True)
+            extracted = [a.values if isinstance(a, dd.DataFrame) else a
+                         for a in extracted]
+            extracted = [a.compute_chunk_sizes() for a in extracted]
+            stacked = da.hstack(extracted)  # , allow_unknown_chunksizes=True)
         elif any(sparse.issparse(fea) for fea in extracted):
             stacked = sparse.hstack(extracted).tocsr()
             # return a sparse matrix only if the mapper was initialized
