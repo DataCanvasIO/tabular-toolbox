@@ -82,12 +82,13 @@ class TestStacking():
         avg_hard = AveragingEnsemble('binary', ests, need_fit=True, n_folds=5, method='hard')
         avg_auc_hard = self.get_auc(avg_hard, X_train, X_test, y_train, y_test)
 
-        ensembler_hard = StackingEnsemble('binary', ests, need_fit=True, n_folds=5, method='hard')
-        ensemble_auc_hard = self.get_auc(ensembler_hard, X_train, X_test, y_train, y_test)
+        stacking_hard = StackingEnsemble('binary', ests, need_fit=True, n_folds=5, method='hard')
+        stacking_auc_hard = self.get_auc(stacking_hard, X_train, X_test, y_train, y_test)
 
-        ensembler_soft = StackingEnsemble('binary', ests, need_fit=True, n_folds=5, method='soft')
-        ensemble_auc_soft = self.get_auc(ensembler_soft, X_train, X_test, y_train, y_test)
-        assert ensemble_auc_soft
+        stacking_soft = StackingEnsemble('binary', ests, need_fit=True, n_folds=5, method='soft')
+        stacking_auc_soft = self.get_auc(stacking_soft, X_train, X_test, y_train, y_test)
+
+        assert stacking_auc_soft
 
     def get_auc(self, clf, X_train, X_test, y_train, y_test):
         clf.fit(X_train, y_train)
@@ -99,24 +100,24 @@ class TestStacking():
         ensembler = StackingEnsemble('binary', [1, 2, 3])
         ensembler.fit(X=None, y=self.binary_y_true, est_predictions=self.bianry_y_preds)
         assert ensembler.meta_model
-        en_pred = ensembler.predict_predictions(self.bianry_y_preds)
+        en_pred = ensembler.predictions2predict(self.bianry_y_preds)
         np.testing.assert_equal(self.binary_y_true, en_pred)
 
         ensembler = StackingEnsemble('binary', [1, 2, 3])
         ensembler.fit_predictions(self.bianry_y_preds, self.binary_y_true)
-        en_pred = ensembler.predict_predictions(self.bianry_y_preds)
+        en_pred = ensembler.predictions2predict(self.bianry_y_preds)
         np.testing.assert_equal(self.binary_y_true, en_pred)
 
     def test_multiclass(self):
-        ensembler = StackingEnsemble('multiclass')
-        ensembler.fit(self.multiclass_y_preds, self.multiclass_y_true)
+        ensembler = StackingEnsemble('multiclass', [1, 2, 3])
+        ensembler.fit_predictions(self.multiclass_y_preds, self.multiclass_y_true)
         assert ensembler.meta_model
-        en_pred = ensembler.predict(self.multiclass_y_preds)
+        en_pred = ensembler.predictions2predict(self.multiclass_y_preds)
         assert en_pred.shape == (54,)
 
     def test_regression(self):
-        ensembler = StackingEnsemble('regression')
-        ensembler.fit(self.bianry_y_preds, self.binary_y_true)
+        ensembler = StackingEnsemble('regression', [1, 2, 3])
+        ensembler.fit_predictions(self.bianry_y_preds, self.binary_y_true)
         assert ensembler.meta_model
-        en_pred = ensembler.predict(self.bianry_y_preds)
+        en_pred = ensembler.predictions2predict(self.bianry_y_preds)
         assert en_pred.shape == (60,)

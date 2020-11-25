@@ -5,6 +5,8 @@ __author__ = 'yangjian'
 """
 from .base_ensemble import BaseEnsemble
 from lightgbm import LGBMClassifier, LGBMRegressor
+from sklearn.linear_model import LogisticRegression, LinearRegression
+
 import numpy as np
 
 
@@ -13,26 +15,9 @@ class StackingEnsemble(BaseEnsemble):
         super(StackingEnsemble, self).__init__(task, estimators, need_fit, n_folds, method)
         if meta_model is None:
             if task == 'regression':
-                self.meta_model = LGBMRegressor(
-                    n_estimators=50,
-                    num_leaves=15,
-                    max_depth=5,
-                    subsample=0.5,
-                    subsample_freq=0,
-                    colsample_bytree=0.8,
-                    reg_alpha=1,
-                    reg_lambda=1)
+                self.meta_model = LinearRegression()
             else:
-                self.meta_model = LGBMClassifier(
-                    n_estimators=50,
-                    num_leaves=15,
-                    max_depth=5,
-                    subsample=0.5,
-                    subsample_freq=0,
-                    colsample_bytree=0.8,
-                    reg_alpha=1,
-                    reg_lambda=1,
-                )
+                self.meta_model = LogisticRegression()
         else:
             self.meta_model = meta_model
         self.fit_kwargs = fit_kwargs if fit_kwargs is not None else {}
