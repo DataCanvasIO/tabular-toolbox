@@ -17,34 +17,41 @@ class BaseEnsemble():
         self.random_state = random_state
 
     def __predict(self, estimator, X):
-        if self.task != 'binary':
+        if self.task == 'regression':
             pred = estimator.predict(X)
         else:
-            proba = estimator.predict_proba(X)
+            pred = estimator.predict_proba(X)
             if self.method == 'hard':
-                pred = self.proba2predict(proba)
-            else:
-                pred = proba[:, 1]
+                pred = self.proba2predict(pred)
         return pred
 
     def proba2predict(self, proba, proba_threshold=0.5):
-        if self.task != 'binary':
+        assert len(proba.shape) <= 2
+        if self.task == 'regression':
             return proba
-        if proba.shape[-1] > 2:
-            predict = proba.argmax(axis=-1)
-        elif proba.shape[-1] == 2:
-            predict = (proba[:, 1] > proba_threshold).astype('int32')
+        if len(proba.shape) == 2:
+            if proba.shape[-1] > 2:
+                predict = proba.argmax(axis=-1)
+            else:
+                predict = (proba[:, -1] > proba_threshold).astype('int32')
         else:
             predict = (proba > proba_threshold).astype('int32')
+
         return predict
 
     def fit(self, X, y, est_predictions=None):
         assert y is not None
         if est_predictions is not None:
-            assert est_predictions.shape == (len(y), len(self.estimators))
+            if self.task == 'regression' or self.method == 'hard':
+                assert est_predictions.shape == (len(y), len(self.estimators))
+            else:
+                assert len(est_predictions.shape) == 3
+                assert est_predictions.shape[0] == len(y)
+                assert est_predictions.shape[1] == len(self.estimators)
         else:
             assert X is not None
-            est_predictions = np.zeros((len(y), len(self.estimators)), dtype=np.float64)
+            if self.task == 'regression' or self.method == 'hard':
+                est_predictions = np.zeros((len(y), len(self.estimators)), dtype=np.float64)
             if self.need_fit:
                 iterators = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
                 for fold, (train, test) in enumerate(iterators.split(X, y)):
@@ -53,23 +60,37 @@ class BaseEnsemble():
                         y_train = y.iloc[train]
                         X_test = X.iloc[test]
                         estimator.fit(X_train, y_train)
-                        est_predictions[test, n] = self.__predict(estimator, X_test)
+                        pred = self.__predict(estimator, X_test)
+                        if est_predictions is None:
+                            est_predictions = np.zeros((len(y), len(self.estimators), pred.shape[1]), dtype=np.float64)
+                        est_predictions[test, n] = pred
+
             else:
                 for n, estimator in enumerate(self.estimators):
-                    est_predictions[:, n] = self.__predict(estimator, X)
+                    pred = self.__predict(estimator, X)
+                    if est_predictions is None:
+                        est_predictions = np.zeros((len(y), len(self.estimators), pred.shape[1]), dtype=np.float64)
+                    est_predictions[:, n] = pred
 
         self.fit_predictions(est_predictions, y)
 
-    def predict(self, X):
-        est_predictions = np.zeros((X.shape[0], len(self.estimators)), dtype=np.float64)
+    def X2predictions(self, X):
+        est_predictions = None
+        if self.task == 'regression' or self.method == 'hard':
+            est_predictions = np.zeros((len(X), len(self.estimators)), dtype=np.float64)
         for n, estimator in enumerate(self.estimators):
-            est_predictions[:, n] = self.__predict(estimator, X)
+            pred = self.__predict(estimator, X)
+            if est_predictions is None:
+                est_predictions = np.zeros((len(X), len(self.estimators), pred.shape[1]), dtype=np.float64)
+            est_predictions[:, n] = pred
+        return est_predictions
+
+    def predict(self, X):
+        est_predictions = self.X2predictions(X)
         return self.predictions2predict(est_predictions)
 
     def predict_proba(self, X):
-        est_predictions = np.zeros((X.shape[0], len(self.estimators)), dtype=np.float64)
-        for n, estimator in enumerate(self.estimators):
-            est_predictions[:, n] = self.__predict(estimator, X)
+        est_predictions = self.X2predictions(X)
         return self.predictions2predict_proba(est_predictions)
 
     def fit_predictions(self, predictions, y_true):

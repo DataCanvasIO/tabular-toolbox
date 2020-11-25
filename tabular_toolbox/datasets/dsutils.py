@@ -14,3 +14,10 @@ def load_bank_by_dask():
     from dask import dataframe as dd
     data = dd.read_csv(f'{basedir}/bank-uci.csv.gz', compression='gzip', blocksize=None)
     return data
+
+
+def load_glass_uci():
+    import pandas as pd
+    print(f'Base dir:{basedir}')
+    data = pd.read_csv(f'{basedir}/glass_uci.csv', header=None)
+    return data

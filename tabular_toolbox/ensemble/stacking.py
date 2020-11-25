@@ -23,21 +23,36 @@ class StackingEnsemble(BaseEnsemble):
         self.fit_kwargs = fit_kwargs if fit_kwargs is not None else {}
 
     def fit_predictions(self, predictions, y_true):
-        self.meta_model.fit(predictions, y_true, **self.fit_kwargs)
+        X = self.__predictions2X(predictions)
+        self.meta_model.fit(X, y_true, **self.fit_kwargs)
+
+    def __predictions2X(self, predictions):
+        X = predictions
+        if len(X.shape) == 3:
+            if self.task == 'binary':
+                X = X[:, :, -1]
+            elif self.task == 'multiclass':
+                X = np.argmax(X, axis=2)
+            else:
+                raise ValueError(
+                    f"The shape of `predictions` and the `task` don't match. shape:{predictions.shape}, task:{self.task}")
+        return X
 
     def predictions2predict(self, predictions):
         assert self.meta_model is not None
-        pred = self.meta_model.predict(predictions)
+        X = self.__predictions2X(predictions)
+        pred = self.meta_model.predict(X)
         if self.task == 'binary':
             pred = np.clip(pred, 0, 1)
         return pred
 
     def predictions2predict_proba(self, predictions):
         assert self.meta_model is not None
+        X = self.__predictions2X(predictions)
         if hasattr(self.meta_model, 'predict_proba'):
-            pred = self.meta_model.predict_proba(predictions)
+            pred = self.meta_model.predict_proba(X)
         else:
-            pred = self.meta_model.predict(predictions)
+            pred = self.meta_model.predict(X)
 
         if self.task == 'binary':
             pred = np.clip(pred, 0, 1)
