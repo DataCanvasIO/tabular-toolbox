@@ -5,12 +5,12 @@ __author__ = 'yangjian'
 """
 import numpy as np
 from tabular_toolbox.ensemble.stacking import StackingEnsemble
-from tabular_toolbox.ensemble.voting import AveragingEnsemble
+from tabular_toolbox.ensemble.voting import AveragingEnsemble, GreedyEnsemble
 from sklearn.tree import ExtraTreeClassifier, DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import roc_auc_score, matthews_corrcoef, make_scorer
+from sklearn.metrics import roc_auc_score, matthews_corrcoef, make_scorer, get_scorer
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
@@ -34,6 +34,10 @@ def general_preprocessor():
 
 
 class TestStacking():
+    def test_scorer(self):
+        scorer = get_scorer('neg_log_loss')
+        assert scorer
+
     def test_multi_estimators_binary(self):
         preprocessor = general_preprocessor()
         df = dsutils.load_bank().head(2000)
@@ -50,9 +54,13 @@ class TestStacking():
         lr_auc = self.get_auc(estimators[3], X_train, X_test, y_train, y_test)
         gb_auc = self.get_auc(estimators[4], X_train, X_test, y_train, y_test)
 
-        ests = [RandomForestClassifier(), LogisticRegression(), GradientBoostingClassifier()]
-        avg = AveragingEnsemble('binary', ests, need_fit=True, n_folds=5, )
+        ests = [RandomForestClassifier(), DecisionTreeClassifier(), LogisticRegression(), ExtraTreeClassifier(),
+                LogisticRegression(), GradientBoostingClassifier()]
 
+        greedy = GreedyEnsemble('binary', ests, need_fit=True, n_folds=5, ensemble_size=10)
+        greedy_auc = self.get_auc(greedy, X_train, X_test, y_train, y_test)
+
+        avg = AveragingEnsemble('binary', ests, need_fit=True, n_folds=5, )
         avg_auc = self.get_auc(avg, X_train, X_test, y_train, y_test)
 
         avg_hard = AveragingEnsemble('binary', ests, need_fit=True, n_folds=5, method='hard')
@@ -82,9 +90,13 @@ class TestStacking():
         lr_auc = self.get_auc(estimators[3], X_train, X_test, y_train, y_test)
         gb_auc = self.get_auc(estimators[4], X_train, X_test, y_train, y_test)
 
-        ests = [RandomForestClassifier(), LogisticRegression(), GradientBoostingClassifier()]
-        avg = AveragingEnsemble('multiclass', ests, need_fit=True, n_folds=5, )
+        ests = [RandomForestClassifier(), DecisionTreeClassifier(), ExtraTreeClassifier(), LogisticRegression(),
+                GradientBoostingClassifier()]
 
+        greedy = GreedyEnsemble('multiclass', ests, need_fit=True, n_folds=5, ensemble_size=10)
+        greedy_auc = self.get_auc(greedy, X_train, X_test, y_train, y_test)
+
+        avg = AveragingEnsemble('multiclass', ests, need_fit=True, n_folds=5, )
         avg_auc = self.get_auc(avg, X_train, X_test, y_train, y_test)
 
         avg_hard = AveragingEnsemble('multiclass', ests, need_fit=True, n_folds=5, method='hard')
