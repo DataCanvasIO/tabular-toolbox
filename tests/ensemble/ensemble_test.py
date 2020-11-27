@@ -3,22 +3,20 @@ __author__ = 'yangjian'
 """
 
 """
-import numpy as np
-from tabular_toolbox.ensemble.stacking import StackingEnsemble
-from tabular_toolbox.ensemble.voting import AveragingEnsemble, GreedyEnsemble
-from sklearn.tree import ExtraTreeClassifier, DecisionTreeClassifier
-from sklearn.linear_model import LogisticRegression
+import pytest
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import roc_auc_score, matthews_corrcoef, make_scorer, get_scorer
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score, get_scorer
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
+from sklearn.tree import ExtraTreeClassifier, DecisionTreeClassifier
+
 from tabular_toolbox.column_selector import column_object_category_bool, column_number_exclude_timedelta
 from tabular_toolbox.dataframe_mapper import DataFrameMapper
 from tabular_toolbox.datasets import dsutils
-import pytest
-from lightgbm import LGBMClassifier
+from tabular_toolbox.ensemble import StackingEnsemble, AveragingEnsemble, GreedyEnsemble
 
 
 def general_preprocessor():
