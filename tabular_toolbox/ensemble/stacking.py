@@ -4,7 +4,6 @@ __author__ = 'yangjian'
 
 """
 from .base_ensemble import BaseEnsemble
-from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.linear_model import LogisticRegression, LinearRegression
 
 import numpy as np
