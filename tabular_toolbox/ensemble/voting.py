@@ -3,9 +3,11 @@ __author__ = 'yangjian'
 """
 
 """
-from .base_ensemble import BaseEnsemble
 import numpy as np
+from collections import defaultdict
 from sklearn.metrics import get_scorer
+
+from .base_ensemble import BaseEnsemble
 
 
 class AveragingEnsemble(BaseEnsemble):
@@ -48,7 +50,7 @@ class GreedyEnsemble(BaseEnsemble):
     def fit_predictions(self, predictions, y_true):
         scores = []
         best_stack = []
-        hits = {}
+        hits = defaultdict(int)
         if len(predictions.shape) == 1:
             self.weights_ = [1]
             return
@@ -74,8 +76,6 @@ class GreedyEnsemble(BaseEnsemble):
             best = np.argmax(stack_scores)
             scores.append(stack_scores[best])
             best_stack.append(best)
-            if hits.get(best) is None:
-                hits[best] = 0
             hits[best] += 1
             sum_predictions += predictions[:, best, :]
 
