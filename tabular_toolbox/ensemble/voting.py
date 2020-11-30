@@ -6,6 +6,7 @@ __author__ = 'yangjian'
 import numpy as np
 from collections import defaultdict
 from sklearn.metrics import get_scorer
+from sklearn.metrics._scorer import _PredictScorer
 
 from .base_ensemble import BaseEnsemble
 
@@ -70,6 +71,11 @@ class GreedyEnsemble(BaseEnsemble):
             for j in range(predictions.shape[1]):
                 pred = predictions[:, j, :]
                 mean_predictions = (sum_predictions + pred) / (len(best_stack) + 1)
+                if isinstance(self.scorer, _PredictScorer):
+                    pred = self.classes_.take(np.argmax(mean_predictions, axis=1), axis=0)
+                    mean_predictions = pred
+                elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
+                    mean_predictions = mean_predictions[:, 1]
                 score = self.scorer._score_func(y_true, mean_predictions) * self.scorer._sign
                 stack_scores.append(score)
 

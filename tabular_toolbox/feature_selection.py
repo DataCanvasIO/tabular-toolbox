@@ -10,13 +10,12 @@ from scipy.cluster import hierarchy
 from scipy.stats import spearmanr
 
 
-def select_by_multicollinearity(self, X):
+def select_by_multicollinearity(X):
     """
     Adapted from https://scikit-learn.org/stable/auto_examples/inspection/plot_permutation_importance_multicollinear.html
     handling multicollinearity is by performing hierarchical clustering on the features’ Spearman
     rank-order correlations, picking a threshold, and keeping a single feature from each cluster.
 
-    :param self:
     :param X:
     :return:
     """

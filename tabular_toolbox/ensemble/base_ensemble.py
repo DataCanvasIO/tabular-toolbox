@@ -15,11 +15,18 @@ class BaseEnsemble():
         self.method = method
         self.n_folds = n_folds
         self.random_state = random_state
+        self.classes_ = None
+        for est in estimators:
+            if self.classes_ is None and hasattr(est, 'classes_'):
+                self.classes_ = est.classes_
+                break
 
     def __predict(self, estimator, X):
         if self.task == 'regression':
             pred = estimator.predict(X)
         else:
+            if self.classes_ is None and hasattr(estimator, 'classes_'):
+                self.classes_ = estimator.classes_
             pred = estimator.predict_proba(X)
             if self.method == 'hard':
                 pred = self.proba2predict(pred)
@@ -87,7 +94,10 @@ class BaseEnsemble():
 
     def predict(self, X):
         est_predictions = self.X2predictions(X)
-        return self.predictions2predict(est_predictions)
+        pred = self.predictions2predict(est_predictions)
+        if self.task != 'regression' and self.classes_ is not None:
+            pred = self.classes_.take(pred, axis=0)
+        return pred
 
     def predict_proba(self, X):
         est_predictions = self.X2predictions(X)
