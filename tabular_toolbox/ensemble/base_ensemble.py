@@ -96,7 +96,7 @@ class BaseEnsemble():
         est_predictions = self.X2predictions(X)
         pred = self.predictions2predict(est_predictions)
         if self.task != 'regression' and self.classes_ is not None:
-            pred = self.classes_.take(pred, axis=0)
+            pred = np.array(self.classes_).take(pred, axis=0)
         return pred
 
     def predict_proba(self, X):

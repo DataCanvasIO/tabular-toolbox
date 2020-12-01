@@ -72,7 +72,7 @@ class GreedyEnsemble(BaseEnsemble):
                 pred = predictions[:, j, :]
                 mean_predictions = (sum_predictions + pred) / (len(best_stack) + 1)
                 if isinstance(self.scorer, _PredictScorer):
-                    pred = self.classes_.take(np.argmax(mean_predictions, axis=1), axis=0)
+                    pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
                     mean_predictions = pred
                 elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
                     mean_predictions = mean_predictions[:, 1]
