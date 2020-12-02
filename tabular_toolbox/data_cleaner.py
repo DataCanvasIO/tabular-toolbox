@@ -222,8 +222,10 @@ class DataCleaner:
         if self.replace_inf_values is not None:
             logger.info(f'Replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
-
-        return X, y
+        if y is None:
+            return X
+        else:
+            return X, y
 
     def append_drop_columns(self, columns):
         if self.df_meta_ is None:
