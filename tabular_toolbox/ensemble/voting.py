@@ -69,10 +69,14 @@ class GreedyEnsemble(BaseEnsemble):
         for i in range(size):
             stack_scores = []
             for j in range(predictions.shape[1]):
-                pred = predictions[:, j, :]
+                if len(predictions.shape) == 2:
+                    pred = predictions[:, j]
+                else:
+                    pred = predictions[:, j, :]
                 mean_predictions = (sum_predictions + pred) / (len(best_stack) + 1)
                 if isinstance(self.scorer, _PredictScorer):
-                    pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
+                    if self.classes_ is not None:
+                        pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
                     mean_predictions = pred
                 elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
                     mean_predictions = mean_predictions[:, 1]
@@ -83,7 +87,10 @@ class GreedyEnsemble(BaseEnsemble):
             scores.append(stack_scores[best])
             best_stack.append(best)
             hits[best] += 1
-            sum_predictions += predictions[:, best, :]
+            if len(predictions.shape) == 2:
+                sum_predictions += predictions[:, best]
+            else:
+                sum_predictions += predictions[:, best, :]
 
         self.weights_ = np.zeros((len(self.estimators)), dtype=np.float64)
         for i in range(len(self.estimators)):

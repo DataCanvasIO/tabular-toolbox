@@ -7,8 +7,9 @@ import copy
 import numpy as np
 import pandas as pd
 from dask import dataframe as dd
+import dask
 
-from .column_selector import column_object, column_int
+from .column_selector import column_object, column_int, column_object_category_bool_int
 from .utils import logging
 
 logger = logging.get_logger(__name__)
@@ -57,9 +58,10 @@ def _drop_duplicated_columns(X):
         duplicates = X.T.duplicated()
 
     columns = [i for i, v in duplicates.items() if not v]
-    X = X[columns]
+    droped = list(set(X.columns.to_list()) - set(columns))
 
-    return X
+    X = X[columns]
+    return X, droped
 
 
 def _correct_object_dtype(X):
@@ -101,20 +103,41 @@ def _drop_constant_columns(X):
         nunique = X.nunique(dropna=True)
 
     columns = [i for i, v in nunique.items() if v > 1]
-    X = X[columns]
 
-    return X
+    droped = list(set(X.columns.to_list()) - set(columns))
+    X = X[columns]
+    return X, droped
+
+
+def _drop_idness_columns(X):
+    cols = column_object_category_bool_int(X)
+    if len(cols) <= 0:
+        return X
+    X_ = X[cols]
+    if isinstance(X_, dd.DataFrame):
+        nunique = X_.reduction(chunk=lambda c: pd.DataFrame(c.nunique(dropna=True)).T,
+                               aggregate=np.max)
+        rows = X_.reduction(lambda df: df.shape[0], np.sum)
+        nunique, rows = dask.compute(nunique, rows)
+    else:
+        nunique = X_.nunique(dropna=True)
+        rows = X_.shape[0]
+
+    droped = [i for i, v in nunique.items() if v / rows > 0.99]
+    columns = list(set(X.columns.to_list()) - set(droped))
+    X = X[columns]
+    return X, droped
 
 
 class DataCleaner:
     def __init__(self, nan_chars=None, correct_object_dtype=True, drop_constant_columns=True,
-                 drop_duplicated_columns=False, drop_label_nan_rows=True, replace_inf_values=np.nan,
-                 drop_columns=None, reduce_mem_usage=False,
-                 int_convert_to='float'):
+                 drop_duplicated_columns=False, drop_label_nan_rows=True, drop_idness_columns=True,
+                 replace_inf_values=np.nan, drop_columns=None, reduce_mem_usage=False, int_convert_to='float'):
         self.nan_chars = nan_chars
         self.correct_object_dtype = correct_object_dtype
         self.drop_constant_columns = drop_constant_columns
         self.drop_label_nan_rows = drop_label_nan_rows
+        self.drop_idness_columns = drop_idness_columns
         self.replace_inf_values = replace_inf_values
         self.drop_columns = drop_columns
         self.drop_duplicated_columns = drop_duplicated_columns
@@ -122,20 +145,29 @@ class DataCleaner:
         self.int_convert_to = int_convert_to
         self.df_meta_ = None
 
+        self.dropped_constant_columns_ = None
+        self.dropped_idness_columns_ = None
+        self.dropped_duplicated_columns_ = None
+
+    def _drop_columns(self, X, cols):
+        if cols is None or len(cols) <= 0:
+            return X
+        X = X[list(set(X.columns.to_list()) - set(cols))]
+        return X
+
     def clean_data(self, X, y):
         assert isinstance(X, (pd.DataFrame, dd.DataFrame))
+        y_name = '__tabular-toolbox__Y__'
 
         if y is not None:
-            y_name = '__tabular-toolbox__Y__'
-            # X.insert(0, y_name, y)
             X[y_name] = y
 
         if self.nan_chars is not None:
-            logger.info(f'Replace chars{self.nan_chars} to NaN')
+            logger.info(f'replace chars{self.nan_chars} to NaN')
             X = X.replace(self.nan_chars, np.nan)
 
         if self.correct_object_dtype:
-            logger.info('Correct data type for object columns.')
+            logger.info('correct data type for object columns.')
             # for col in column_object(X):
             #     try:
             #         X[col] = X[col].astype('float')
@@ -144,34 +176,41 @@ class DataCleaner:
             X = _correct_object_dtype(X)
 
         if self.drop_duplicated_columns:
-            # duplicates = X.T.duplicated().values
-            # columns = [c for i, c in enumerate(X.columns.to_list()) if not duplicates[i]]
-            # X = X[columns]
-            X = _drop_duplicated_columns(X)
+            logger.info('drop duplicated columns')
+            if self.dropped_duplicated_columns_ is not None:
+                X = self._drop_columns(X, self.dropped_duplicated_columns_)
+            else:
+                X, self.dropped_duplicated_columns_ = _drop_duplicated_columns(X)
+
+        if self.drop_idness_columns:
+            logger.info('drop idness columns')
+            if self.dropped_idness_columns_ is not None:
+                X = self._drop_columns(X, self.dropped_idness_columns_)
+            else:
+                X, self.dropped_idness_columns_ = _drop_idness_columns(X)
 
         if self.int_convert_to is not None:
-            logger.info(f'Convert int type to {self.int_convert_to}')
+            logger.info(f'convert int type to {self.int_convert_to}')
             int_cols = column_int(X)
             X[int_cols] = X[int_cols].astype(self.int_convert_to)
 
         if y is not None:
             if self.drop_label_nan_rows:
-                logger.info('Clean the rows which label is NaN')
+                logger.info('clean the rows which label is NaN')
                 X = X.dropna(subset=[y_name])
             y = X.pop(y_name)
 
         if self.drop_columns is not None:
-            logger.info(f'Drop columns:{self.drop_columns}')
+            logger.info(f'drop columns:{self.drop_columns}')
             for col in self.drop_columns:
                 X.pop(col)
 
         if self.drop_constant_columns:
-            logger.info('Clean invalidate columns')
-            # for col in X.columns:
-            #     n_unique = X[col].nunique(dropna=True)
-            #     if n_unique <= 1:
-            #         X.pop(col)
-            X = _drop_constant_columns(X)
+            logger.info('drop invalidate columns')
+            if self.dropped_constant_columns_ is not None:
+                self._drop_columns(X, self.dropped_constant_columns_)
+            else:
+                X, self.dropped_constant_columns_ = _drop_constant_columns(X)
 
         o_cols = column_object(X)
         X[o_cols] = X[o_cols].astype('str')
@@ -186,14 +225,14 @@ class DataCleaner:
 
         X, y = self.clean_data(X, y)
         if self.reduce_mem_usage:
-            logger.info('Reduce memory usage')
+            logger.info('reduce memory usage')
             _reduce_mem_usage(X)
 
         if self.replace_inf_values is not None:
-            logger.info(f'Replace [inf,-inf] to {self.replace_inf_values}')
+            logger.info(f'replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
 
-        logger.info('Collect meta info from data')
+        logger.info('collect meta info from data')
         df_meta = {}
         for col_info in zip(X.columns.to_list(), X.dtypes):
             dtype = str(col_info[1])
@@ -210,7 +249,7 @@ class DataCleaner:
                 y = copy.deepcopy(y)
         X, y = self.clean_data(X, y)
         if self.df_meta_ is not None:
-            logger.info('Processing with meta info')
+            logger.info('processing with meta info')
             all_cols = []
             for dtype, cols in self.df_meta_.items():
                 all_cols += cols
@@ -220,7 +259,7 @@ class DataCleaner:
             logger.info(f'droped columns:{drop_cols}')
 
         if self.replace_inf_values is not None:
-            logger.info(f'Replace [inf,-inf] to {self.replace_inf_values}')
+            logger.info(f'replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
         if y is None:
             return X

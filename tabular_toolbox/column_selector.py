@@ -102,6 +102,8 @@ column_category = HyperColumnSelector(dtype_include=['category'])
 column_bool = HyperColumnSelector(dtype_include=['bool'])
 column_number = HyperColumnSelector(dtype_include='number')
 column_number_exclude_timedelta = HyperColumnSelector(dtype_include='number', dtype_exclude='timedelta')
+column_object_category_bool_int = HyperColumnSelector(
+    dtype_include=['object', 'category', 'bool', 'int16', 'int32', 'int64'])
 
 column_timedelta = HyperColumnSelector(dtype_include='timedelta')
 column_datetimetz = HyperColumnSelector(dtype_include='datetimetz')
