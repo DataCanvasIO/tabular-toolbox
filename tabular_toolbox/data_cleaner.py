@@ -84,13 +84,13 @@ def _correct_object_dtype(X):
         float_columns = [i for i, v in floatable.items() if v]
         for col in float_columns:
             X[col] = X[col].astype('float')
-        logger.info(f'Correct columns [{",".join(float_columns)}] to float.')
+        logger.debug(f'Correct columns [{",".join(float_columns)}] to float.')
     else:
         for col in object_columns:
             try:
                 X[col] = X[col].astype('float')
             except Exception as e:
-                logger.error(f'Correct object column [{col}] failed. {e}')
+                logger.debug(f'Correct object column [{col}] failed. {e}')
 
     return X
 
@@ -163,11 +163,11 @@ class DataCleaner:
             X[y_name] = y
 
         if self.nan_chars is not None:
-            logger.info(f'replace chars{self.nan_chars} to NaN')
+            logger.debug(f'replace chars{self.nan_chars} to NaN')
             X = X.replace(self.nan_chars, np.nan)
 
         if self.correct_object_dtype:
-            logger.info('correct data type for object columns.')
+            logger.debug('correct data type for object columns.')
             # for col in column_object(X):
             #     try:
             #         X[col] = X[col].astype('float')
@@ -176,37 +176,37 @@ class DataCleaner:
             X = _correct_object_dtype(X)
 
         if self.drop_duplicated_columns:
-            logger.info('drop duplicated columns')
+            logger.debug('drop duplicated columns')
             if self.dropped_duplicated_columns_ is not None:
                 X = self._drop_columns(X, self.dropped_duplicated_columns_)
             else:
                 X, self.dropped_duplicated_columns_ = _drop_duplicated_columns(X)
 
         if self.drop_idness_columns:
-            logger.info('drop idness columns')
+            logger.debug('drop idness columns')
             if self.dropped_idness_columns_ is not None:
                 X = self._drop_columns(X, self.dropped_idness_columns_)
             else:
                 X, self.dropped_idness_columns_ = _drop_idness_columns(X)
 
         if self.int_convert_to is not None:
-            logger.info(f'convert int type to {self.int_convert_to}')
+            logger.debug(f'convert int type to {self.int_convert_to}')
             int_cols = column_int(X)
             X[int_cols] = X[int_cols].astype(self.int_convert_to)
 
         if y is not None:
             if self.drop_label_nan_rows:
-                logger.info('clean the rows which label is NaN')
+                logger.debug('clean the rows which label is NaN')
                 X = X.dropna(subset=[y_name])
             y = X.pop(y_name)
 
         if self.drop_columns is not None:
-            logger.info(f'drop columns:{self.drop_columns}')
+            logger.debug(f'drop columns:{self.drop_columns}')
             for col in self.drop_columns:
                 X.pop(col)
 
         if self.drop_constant_columns:
-            logger.info('drop invalidate columns')
+            logger.debug('drop invalidate columns')
             if self.dropped_constant_columns_ is not None:
                 self._drop_columns(X, self.dropped_constant_columns_)
             else:
@@ -225,14 +225,14 @@ class DataCleaner:
 
         X, y = self.clean_data(X, y)
         if self.reduce_mem_usage:
-            logger.info('reduce memory usage')
+            logger.debug('reduce memory usage')
             _reduce_mem_usage(X)
 
         if self.replace_inf_values is not None:
-            logger.info(f'replace [inf,-inf] to {self.replace_inf_values}')
+            logger.debug(f'replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
 
-        logger.info('collect meta info from data')
+        logger.debug('collect meta info from data')
         df_meta = {}
         for col_info in zip(X.columns.to_list(), X.dtypes):
             dtype = str(col_info[1])
@@ -249,17 +249,17 @@ class DataCleaner:
                 y = copy.deepcopy(y)
         X, y = self.clean_data(X, y)
         if self.df_meta_ is not None:
-            logger.info('processing with meta info')
+            logger.debug('processing with meta info')
             all_cols = []
             for dtype, cols in self.df_meta_.items():
                 all_cols += cols
                 X[cols] = X[cols].astype(dtype)
             drop_cols = set(X.columns.to_list()) - set(all_cols)
             X = X[all_cols]
-            logger.info(f'droped columns:{drop_cols}')
+            logger.debug(f'droped columns:{drop_cols}')
 
         if self.replace_inf_values is not None:
-            logger.info(f'replace [inf,-inf] to {self.replace_inf_values}')
+            logger.debug(f'replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
         if y is None:
             return X
