@@ -15,7 +15,7 @@ from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted
 
 from .column_selector import column_skewness_kurtosis, column_int, column_object_category_bool
-from .utils import logging
+from .utils import logging, infer_task_type
 
 logger = logging.get_logger(__name__)
 
@@ -175,7 +175,8 @@ class SkewnessKurtosisTransformer:
 
 
 class FeatureSelectionTransformer():
-    def __init__(self, task, max_train_samples=10000, max_test_samples=10000, max_cols=10000, ratio_select_cols=0.1,
+    def __init__(self, task=None, max_train_samples=10000, max_test_samples=10000, max_cols=10000,
+                 ratio_select_cols=0.1,
                  n_max_cols=100, n_min_cols=10, reserved_cols=None):
         self.task = task
         if max_cols <= 0:
@@ -204,6 +205,9 @@ class FeatureSelectionTransformer():
         return cat_cols
 
     def feature_score(self, F_train, y_train, F_test, y_test):
+        if self.task is None:
+            self.task, _ = infer_task_type(y_train)
+
         if self.task == 'regression':
             model = LGBMRegressor()
             eval_metric = root_mean_squared_error
@@ -230,6 +234,8 @@ class FeatureSelectionTransformer():
 
     def fit(self, X, y):
         start_time = time.time()
+        if self.task is None:
+            self.task, _ = infer_task_type(y)
         columns = X.columns.to_list()
         logger.info(f'all columns: {columns}')
         if self.reserved_cols is not None:
