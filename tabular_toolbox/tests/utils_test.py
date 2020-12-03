@@ -3,12 +3,10 @@ __author__ = 'yangjian'
 """
 
 """
-import io
 import copy
-import numpy as np
+import io
+
 import pandas as pd
-from numpy import dtype
-from dask import dataframe as dd
 
 from tabular_toolbox.utils import hash_dataframe
 
