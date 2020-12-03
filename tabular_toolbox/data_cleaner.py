@@ -240,6 +240,7 @@ class DataCleaner:
                 df_meta[dtype] = []
             df_meta[dtype].append(col_info[0])
         self.df_meta_ = df_meta
+        logger.info(f'dataframe meta:{self.df_meta_}')
         return X, y
 
     def transform(self, X, y=None, copy_data=True):
