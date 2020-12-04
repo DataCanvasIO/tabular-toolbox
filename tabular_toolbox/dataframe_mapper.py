@@ -329,6 +329,7 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
                 with add_column_names_to_exception(columns):
                     Xt = self._get_col_subset(X, columns, input_df)
                     _call_fit(transformers.fit, Xt, y)
+                    print(f'{transformers}:{Xt.dtypes}')
 
         # handle features not explicitly selected
         if self.built_default:  # not False and not None
@@ -421,12 +422,16 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
             Xt = self._get_col_subset(X, columns, input_df)
             if transformers is not None:
                 with add_column_names_to_exception(columns):
+                    # print(f'before ---- {transformers}:{Xt.dtypes}')
+
                     if do_fit and hasattr(transformers, 'fit_transform'):
                         Xt = _call_fit(transformers.fit_transform, Xt, y)
                     else:
                         if do_fit:
                             _call_fit(transformers.fit, Xt, y)
                         Xt = transformers.transform(Xt)
+                    # print(f'after ---- {transformers}:{pd.DataFrame(Xt).dtypes}')
+
             extracted.append(_handle_feature(Xt))
             logger.debug(f'columns:{columns}')
             alias = options.get('alias')
