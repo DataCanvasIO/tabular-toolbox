@@ -86,8 +86,36 @@ class MultiLabelEncoder:
 class SafeOrdinalEncoder(OrdinalEncoder):
     __doc__ = r'Adapted from sklearn OrdinalEncoder\n' + OrdinalEncoder.__doc__
 
-    def fit(self, X, y=None):
-        super().fit(X, y)
+    # def fit(self, X, y=None):
+    #     super().fit(X, y)
+    #     #
+    #     # def make_encoder(categories):
+    #     #     unseen = len(categories)
+    #     #     m = dict(zip(categories, range(unseen)))
+    #     #     vf = np.vectorize(lambda x: m[x] if x in m.keys() else unseen)
+    #     #     return vf
+    #     #
+    #     # def make_decoder(categories, dtype):
+    #     #     if dtype in (np.float32, np.float64, np.float):
+    #     #         default_value = np.nan
+    #     #     elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
+    #     #         default_value = -1
+    #     #     else:
+    #     #         default_value = None
+    #     #         dtype = np.object
+    #     #     unseen = len(categories)
+    #     #     vf = np.vectorize(lambda x: categories[x] if unseen > x >= 0 else default_value,
+    #     #                       otypes=[dtype])
+    #     #     return vf
+    #     #
+    #     # self.encoders_ = [make_encoder(cat) for cat in self.categories_]
+    #     # self.decoders_ = [make_decoder(cat, X.dtypes[i]) for i, cat in enumerate(self.categories_)]
+    #
+    #     return self
+
+    def transform(self, X, y=None):
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise TypeError("Unexpected type {}".format(type(X)))
 
         def make_encoder(categories):
             unseen = len(categories)
@@ -95,30 +123,9 @@ class SafeOrdinalEncoder(OrdinalEncoder):
             vf = np.vectorize(lambda x: m[x] if x in m.keys() else unseen)
             return vf
 
-        def make_decoder(categories, dtype):
-            if dtype in (np.float32, np.float64, np.float):
-                default_value = np.nan
-            elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
-                default_value = -1
-            else:
-                default_value = None
-                dtype = np.object
-            unseen = len(categories)
-            vf = np.vectorize(lambda x: categories[x] if unseen > x >= 0 else default_value,
-                              otypes=[dtype])
-            return vf
-
-        self.encoders_ = [make_encoder(cat) for cat in self.categories_]
-        self.decoders_ = [make_decoder(cat, X.dtypes[i]) for i, cat in enumerate(self.categories_)]
-
-        return self
-
-    def transform(self, X, y=None):
-        if not isinstance(X, (pd.DataFrame, np.ndarray)):
-            raise TypeError("Unexpected type {}".format(type(X)))
-
         values = X if isinstance(X, np.ndarray) else X.values
-        result = [self.encoders_[i](values[:, i]) for i in range(values.shape[1])]
+        encoders_ = [make_encoder(cat) for cat in self.categories_]
+        result = [encoders_[i](values[:, i]) for i in range(values.shape[1])]
 
         if isinstance(X, pd.DataFrame):
             assert len(result) == len(X.columns)
@@ -135,8 +142,22 @@ class SafeOrdinalEncoder(OrdinalEncoder):
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
             raise TypeError("Unexpected type {}".format(type(X)))
 
+        def make_decoder(categories, dtype):
+            if dtype in (np.float32, np.float64, np.float):
+                default_value = np.nan
+            elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
+                default_value = -1
+            else:
+                default_value = None
+                dtype = np.object
+            unseen = len(categories)
+            vf = np.vectorize(lambda x: categories[x] if unseen > x >= 0 else default_value,
+                              otypes=[dtype])
+            return vf
+
         values = X if isinstance(X, np.ndarray) else X.values
-        result = [self.decoders_[i](values[:, i]) for i in range(values.shape[1])]
+        decoders_ = [make_decoder(cat, X.dtypes[i]) for i, cat in enumerate(self.categories_)]
+        result = [decoders_[i](values[:, i]) for i in range(values.shape[1])]
 
         if isinstance(X, pd.DataFrame):
             assert len(result) == len(X.columns)
