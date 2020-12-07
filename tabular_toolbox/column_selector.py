@@ -10,7 +10,7 @@ from scipy.stats import skew, kurtosis
 from sklearn.compose import make_column_selector
 
 
-class HyperColumnSelector(make_column_selector):
+class ColumnSelector(make_column_selector):
     __doc__ = make_column_selector.__doc__
 
     def __call__(self, df):
@@ -18,19 +18,34 @@ class HyperColumnSelector(make_column_selector):
             # # if not hasattr(df, 'iloc'):
             # #     raise ValueError("make_column_selector can only be applied to "
             # #                      "pandas dataframes")
-            # # df_row = df.iloc[:1]
-            # df_row = df
-            #
-            # if self.dtype_include is not None or self.dtype_exclude is not None:
-            #     df_row = df_row.select_dtypes(include=self.dtype_include,
-            #                                   exclude=self.dtype_exclude)
-            # cols = df_row.columns
-            # if self.pattern is not None:
-            #     cols = cols[cols.str.contains(self.pattern, regex=True)]
-            # return cols.tolist()
-            df = df.head(1)
+            # df_row = df.iloc[:1]
+            df_row = df
 
-        return super(HyperColumnSelector, self).__call__(df)
+            if self.dtype_include is not None or self.dtype_exclude is not None:
+                df_row = df_row.select_dtypes(include=self.dtype_include, exclude=self.dtype_exclude)
+            cols = df_row.columns
+            if self.pattern is not None:
+                cols = cols[cols.str.contains(self.pattern, regex=True)]
+            result = cols.tolist()
+        else:
+            result = super(ColumnSelector, self).__call__(df)
+
+        return result
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        attrs = []
+        if self.pattern:
+            attrs.append(f'pattern:{self.pattern}')
+        if self.dtype_include:
+            attrs.append(f'include:{self.dtype_include}')
+        if self.dtype_exclude:
+            attrs.append(f'exclude:{self.dtype_exclude}')
+
+        s = f'{self.__class__.__name__}({", ".join(attrs)})'
+        return s
 
 
 class MinMaxColumnSelector(object):
@@ -95,22 +110,22 @@ class CompositedColumnSelector(object):
         return list(df.columns)  # un-reached
 
 
-column_all = HyperColumnSelector()
-column_object_category_bool = HyperColumnSelector(dtype_include=['object', 'category', 'bool'])
-column_object = HyperColumnSelector(dtype_include=['object'])
-column_category = HyperColumnSelector(dtype_include=['category'])
-column_bool = HyperColumnSelector(dtype_include=['bool'])
-column_number = HyperColumnSelector(dtype_include='number')
-column_number_exclude_timedelta = HyperColumnSelector(dtype_include='number', dtype_exclude='timedelta')
-column_object_category_bool_int = HyperColumnSelector(
+column_all = ColumnSelector()
+column_object_category_bool = ColumnSelector(dtype_include=['object', 'category', 'bool'])
+column_object = ColumnSelector(dtype_include=['object'])
+column_category = ColumnSelector(dtype_include=['category'])
+column_bool = ColumnSelector(dtype_include=['bool'])
+column_number = ColumnSelector(dtype_include='number')
+column_number_exclude_timedelta = ColumnSelector(dtype_include='number', dtype_exclude='timedelta')
+column_object_category_bool_int = ColumnSelector(
     dtype_include=['object', 'category', 'bool', 'int16', 'int32', 'int64'])
 
-column_timedelta = HyperColumnSelector(dtype_include='timedelta')
-column_datetimetz = HyperColumnSelector(dtype_include='datetimetz')
-column_datetime = HyperColumnSelector(dtype_include='datetime')
-column_all_datetime = HyperColumnSelector(dtype_include=['datetime', 'datetimetz'])
-column_int = HyperColumnSelector(dtype_include=['int16', 'int32', 'int64'])
-column_exclude_datetime = HyperColumnSelector(
+column_timedelta = ColumnSelector(dtype_include='timedelta')
+column_datetimetz = ColumnSelector(dtype_include='datetimetz')
+column_datetime = ColumnSelector(dtype_include='datetime')
+column_all_datetime = ColumnSelector(dtype_include=['datetime', 'datetimetz'])
+column_int = ColumnSelector(dtype_include=['int16', 'int32', 'int64'])
+column_exclude_datetime = ColumnSelector(
     dtype_exclude=['timedelta', 'datetime', 'datetimetz', 'period[M]', 'period[D]', 'period[Q]'])
 
 column_zero_or_positive_int32 = CompositedColumnSelector(
