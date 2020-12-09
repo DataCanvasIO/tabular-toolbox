@@ -68,9 +68,11 @@ class MultiLabelEncoder:
     def fit(self, X, y=None):
         assert len(X.shape) == 2
         n_features = X.shape[1]
+        use_iloc = hasattr(X, 'iloc')
         for n in range(n_features):
             le = SafeLabelEncoder()
-            le.fit(X.iloc[:, n])
+            data = X.iloc[:, n] if use_iloc else X[:, n]
+            le.fit(data)
             self.encoders[n] = le
         return self
 
