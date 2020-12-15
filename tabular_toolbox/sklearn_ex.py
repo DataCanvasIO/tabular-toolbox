@@ -70,7 +70,10 @@ class MultiLabelEncoder:
         n_features = X.shape[1]
         for n in range(n_features):
             le = SafeLabelEncoder()
-            le.fit(X.iloc[:, n])
+            if isinstance(X, pd.DataFrame):
+                le.fit(X.iloc[:, n])
+            else:
+                le.fit(X[:, n])
             self.encoders[n] = le
         return self
 
@@ -79,7 +82,10 @@ class MultiLabelEncoder:
         n_features = X.shape[1]
         assert n_features == len(self.encoders.items())
         for n in range(n_features):
-            X.iloc[:, n] = self.encoders[n].transform(X.iloc[:, n])
+            if isinstance(X, pd.DataFrame):
+                X.iloc[:, n] = self.encoders[n].transform(X.iloc[:, n])
+            else:
+                X[:, n] = self.encoders[n].transform(X[:, n])
         return X
 
 

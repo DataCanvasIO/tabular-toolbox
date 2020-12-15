@@ -112,7 +112,7 @@ def _drop_constant_columns(X):
 def _drop_idness_columns(X):
     cols = column_object_category_bool_int(X)
     if len(cols) <= 0:
-        return X
+        return X, []
     X_ = X[cols]
     if isinstance(X_, dd.DataFrame):
         nunique = X_.reduction(chunk=lambda c: pd.DataFrame(c.nunique(dropna=True)).T,
@@ -166,6 +166,12 @@ class DataCleaner:
             logger.debug(f'replace chars{self.nan_chars} to NaN')
             X = X.replace(self.nan_chars, np.nan)
 
+        if y is not None:
+            if self.drop_label_nan_rows:
+                logger.debug('clean the rows which label is NaN')
+                X = X.dropna(subset=[y_name])
+            y = X.pop(y_name)
+
         if self.correct_object_dtype:
             logger.debug('correct data type for object columns.')
             # for col in column_object(X):
@@ -193,12 +199,6 @@ class DataCleaner:
             logger.debug(f'convert int type to {self.int_convert_to}')
             int_cols = column_int(X)
             X[int_cols] = X[int_cols].astype(self.int_convert_to)
-
-        if y is not None:
-            if self.drop_label_nan_rows:
-                logger.debug('clean the rows which label is NaN')
-                X = X.dropna(subset=[y_name])
-            y = X.pop(y_name)
 
         if self.drop_columns is not None:
             logger.debug(f'drop columns:{self.drop_columns}')
