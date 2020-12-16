@@ -10,7 +10,7 @@ from hypergbm import HyperGBM, CompeteExperiment
 from hypergbm.search_space import search_space_general
 from hypernets.core.searcher import OptimizeDirection
 from hypernets.experiment import GeneralExperiment, ConsoleCallback
-from hypernets.searchers import RandomSearcher
+from hypernets.searchers import RandomSearcher, EvolutionSearcher
 from hypernets.core import EarlyStoppingCallback
 
 
@@ -27,10 +27,13 @@ class HyperGBMEstimator(BaseEstimator):
         self.earlystop_rounds = earlystop_rounds
 
     def train(self, X, y, X_test):
-        rs = RandomSearcher(lambda: search_space_general(early_stopping_rounds=20, verbose=0),
-                            optimize_direction=OptimizeDirection.Maximize)
+        searcher = EvolutionSearcher(lambda: search_space_general(early_stopping_rounds=20, verbose=0),
+                                     optimize_direction=OptimizeDirection.Maximize, population_size=30, sample_size=10,
+                                     regularized=True, candidates_size=10)
+        # searcher = RandomSearcher(lambda: search_space_general(early_stopping_rounds=20, verbose=0),
+        #                     optimize_direction=OptimizeDirection.Maximize)
         es = EarlyStoppingCallback(self.earlystop_rounds, 'max')
-        hk = HyperGBM(rs, reward_metric='auc', cache_dir=f'hypergbm_cache', callbacks=[es])
+        hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', callbacks=[es])
 
         log_callback = ConsoleCallback()
         experiment = CompeteExperiment(hk, X, y, X_test=X_test,

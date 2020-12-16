@@ -57,6 +57,6 @@ class Evaluator():
                     score = scorer(estimator, X_test, y_test)
                     result[estimator.name][metric] = score
             except Exception as e:
-                result[estimator.name] = e
+                result[estimator.name] = str(e)
 
         return result
