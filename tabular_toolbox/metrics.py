@@ -6,7 +6,7 @@ import dask_ml.metrics as dm_metrics
 import numpy as np
 from dask import dataframe as dd, array as da
 from sklearn import metrics as sk_metrics
-from .dask_ex import to_dask_type as _to_dask_type
+
 from .utils import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ _DASK_TYPES = (dd.DataFrame, da.Array, dd.Series)
 _DASK_METRICS = ('accuracy', 'logloss')
 
 
-def calc_score(y_true, y_preds, y_proba=None, metrics=['accuracy'], task='binary', pos_label=1):
+def calc_score(y_true, y_preds, y_proba=None, metrics=('accuracy',), task='binary', pos_label=1):
     if any(isinstance(y, _DASK_TYPES) for y in (y_true, y_proba, y_preds)):
         if len(set(metrics).difference(set(_DASK_METRICS))) == 0:
             fn = _calc_score_dask
@@ -33,7 +33,7 @@ def calc_score(y_true, y_preds, y_proba=None, metrics=['accuracy'], task='binary
     return fn(y_true, y_preds, y_proba, metrics, task, pos_label)
 
 
-def _calc_score_sklean(y_true, y_preds, y_proba=None, metrics=['accuracy'], task='binary', pos_label=1):
+def _calc_score_sklean(y_true, y_preds, y_proba=None, metrics=('accuracy',), task='binary', pos_label=1):
     score = {}
     if y_proba is None:
         y_proba = y_preds
@@ -89,18 +89,38 @@ def _calc_score_sklean(y_true, y_preds, y_proba=None, metrics=['accuracy'], task
 
 
 def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task='binary', pos_label=1):
+    def to_array(name, value):
+        if value is None:
+            return value
+
+        if isinstance(value, (dd.DataFrame, dd.Series)):
+            value = value.values
+
+        if len(value.shape) == 2 and value.shape[-1] == 1:
+            value = value.reshape(-1)
+
+        chunks = value.chunks
+        if any(np.nan in d for d in chunks):
+            # logger.debug(f'call {name} compute_chunk_sizes')
+            value = value.compute_chunk_sizes()
+
+        return value
+
     score = {}
 
-    y_true = _to_dask_type(y_true)
-    y_preds = _to_dask_type(y_preds)
-    y_proba = _to_dask_type(y_proba)
+    y_true = to_array('y_true', y_true)
+    y_preds = to_array('y_preds', y_preds)
+    y_proba = to_array('y_proba', y_proba)
+
+    if y_true.chunks[0] != y_preds.chunks[0]:
+        logger.debug(f'rechunk y_preds with {y_true.chunks[0]}')
+        y_preds = y_preds.rechunk(chunks=y_true.chunks[0])
 
     if y_proba is None:
         y_proba = y_preds
-    if len(y_proba.shape) == 2 and y_proba.shape[-1] == 1:
-        y_proba = y_proba.reshape(-1)
-    if len(y_preds.shape) == 2 and y_preds.shape[-1] == 1:
-        y_preds = y_preds.reshape(-1)
+    elif y_true.chunks[0] != y_proba.chunks[0]:
+        logger.debug(f'rechunk y_proba with {y_true.chunks[0]}')
+        y_proba = y_proba.rechunk(chunks=y_true.chunks[0])
 
     for metric in metrics:
         if callable(metric):
@@ -108,18 +128,12 @@ def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task=
         else:
             metric = metric.lower()
             if metric == 'accuracy':
-                if y_proba is None:
-                    score['accuracy'] = 0
-                else:
-                    score['accuracy'] = dm_metrics.accuracy_score(y_true, y_preds)
+                score[metric] = dm_metrics.accuracy_score(y_true, y_preds)
             elif metric == 'logloss':
-                if isinstance(y_true, dd.Series):
-                    ll = dm_metrics.log_loss(y_true.compute(), y_proba)  # fixme
-                else:
-                    ll = dm_metrics.log_loss(y_true, y_proba)
+                ll = dm_metrics.log_loss(y_true, y_proba)
                 if hasattr(ll, 'compute'):
                     ll = ll.compute()
-                score['logloss'] = ll
+                score[metric] = ll
             else:
                 logger.warning(f'unknown metric: {metric}')
     return score
