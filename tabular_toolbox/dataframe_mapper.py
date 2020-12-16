@@ -16,6 +16,7 @@ from scipy import sparse
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import _name_estimators, Pipeline
 from sklearn.utils import tosequence
+
 from .utils import logging
 
 logger = logging.get_logger(__name__)
@@ -376,12 +377,13 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
             # Otherwise use the only estimator present
             else:
                 names = _get_feature_names(transformer, columns)
-            if names is not None and len(names) == num_cols:
+
+            if logger.is_debug_enabled():
                 logger.debug(f'names:{names}')
+            if names is not None and len(names) == num_cols:
                 return list(names)  # ['%s_%s' % (name, o) for o in names]
             # otherwise, return name concatenated with '_1', '_2', etc.
             else:
-                logger.debug(f'names:{names}')
                 return [name + '_' + str(o) for o in range(num_cols)]
         else:
             return [name]
@@ -433,11 +435,12 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
                     # print(f'after ---- {transformers}:{pd.DataFrame(Xt).dtypes}')
 
             extracted.append(_handle_feature(Xt))
-            logger.debug(f'columns:{columns}')
+            if logger.is_debug_enabled():
+                logger.debug(f'columns:{columns}')
             alias = options.get('alias')
-            self.transformed_names_ += self.get_names(
-                columns, transformers, Xt, alias)
-            logger.debug(f'transformed_names_:{self.transformed_names_}')
+            self.transformed_names_ += self.get_names(columns, transformers, Xt, alias)
+            if logger.is_debug_enabled():
+                logger.debug(f'transformed_names_:{self.transformed_names_}')
 
         # handle features not explicitly selected
         if self.built_default is not False:
@@ -482,7 +485,18 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
         if isinstance(X, dd.DataFrame):
             extracted = [a.values if isinstance(a, dd.DataFrame) else a
                          for a in extracted]
-            extracted = [a.compute_chunk_sizes() for a in extracted]
+
+            def call_compute_chunk_size(a):
+                chunks = a.chunks
+                if any(np.nan in d for d in chunks):
+                    if logger.is_debug_enabled():
+                        logger.debug(f'call extracted array compute_chunk_sizes, shape: {a.shape}')
+                    a = a.compute_chunk_sizes()
+                return a
+
+            if len(extracted) > 1:
+                # extracted = [a.compute_chunk_sizes() for a in extracted]
+                extracted = [call_compute_chunk_size(a) for a in extracted]
             stacked = da.hstack(extracted)  # , allow_unknown_chunksizes=True)
         elif any(sparse.issparse(fea) for fea in extracted):
             stacked = sparse.hstack(extracted).tocsr()
@@ -516,8 +530,11 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
             dtypes = self.get_dtypes(extracted)
 
             # preserve types
-            for col, dtype in zip(self.transformed_names_, dtypes):
-                df_out[col] = df_out[col].astype(dtype)
+            for col, dtype, stype in zip(self.transformed_names_, dtypes, df_out.dtypes.tolist()):
+                if dtype != stype:
+                    if logger.is_debug_enabled():
+                        logger.debug(f'convert {col} as {dtype} from {stype}')
+                    df_out[col] = df_out[col].astype(dtype)
             df_out = self._dtype_transform(df_out)
             return df_out
         else:
