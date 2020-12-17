@@ -101,7 +101,7 @@ class OneHotEncoder(dm_pre.OneHotEncoder):
                     if Xi.dtype == 'object':
                         Xi = Xi.astype('category').cat.as_known()
                     a.append(Xi)
-                X = dd.concat(a, axis=1)
+                X = dd.concat(a, axis=1, ignore_unknown_divisions=True)
             else:
                 for i in range(len(X.columns)):
                     Xi = X.iloc[:, i]
