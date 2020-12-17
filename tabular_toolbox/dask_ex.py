@@ -10,6 +10,9 @@ from dask_ml import decomposition as dm_dec
 from dask_ml import preprocessing as dm_pre
 from sklearn import preprocessing as sk_pre
 from sklearn.base import BaseEstimator, TransformerMixin
+from .utils import logging
+
+logger = logging.get_logger(__name__)
 
 
 def to_dask_type(X):
@@ -152,7 +155,7 @@ class MaxAbsScaler(sk_pre.MaxAbsScaler):
 
         self._reset()
         if isinstance(X, (pd.DataFrame, np.ndarray)):
-            return super().partial_fit(X, y)
+            return super().fit(X, y)
 
         max_abs = X.reduction(lambda x: x.abs().max(),
                               aggregate=lambda x: x.max(),
@@ -235,58 +238,6 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
         self.non_categorical_columns_ = X.columns.drop(self.categorical_columns_)
         self.categories_ = {c: X[c].cat.categories.sort_values() for c in columns}
 
-        def make_encoder(columns, categories, dtype):
-            encoders = {}
-            for col in columns:
-                cat = categories[col]
-                unseen = len(cat)
-                m = dict(zip(cat, range(unseen)))
-                vf = np.vectorize(lambda x: m[x] if x in m.keys() else unseen)
-                encoders[col] = vf
-
-            def pdf_encoder(pdf):
-                assert isinstance(pdf, pd.DataFrame)
-
-                pdf = pdf.copy()
-                for col in columns:
-                    r = encoders[col](pdf[col].values)
-                    if r.dtype != dtype:
-                        r = r.astype(dtype)
-                    pdf[col] = r
-                return pdf
-
-            return pdf_encoder
-
-        def make_decoder(columns, categories, dtypes):
-            decoders = {}
-            for col in columns:
-                dtype = dtypes[col]
-                if dtype in (np.float32, np.float64, np.float):
-                    default_value = np.nan
-                elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
-                    default_value = -1
-                else:
-                    default_value = None
-                    dtype = np.object
-
-                cat = categories[col]
-                unseen = cat.shape[0]  # len(cat)
-                vf = np.vectorize(lambda x: cat[x] if unseen > x >= 0 else default_value,
-                                  otypes=[dtype])
-                decoders[col] = vf
-
-            def pdf_decoder(pdf):
-                assert isinstance(pdf, pd.DataFrame)
-
-                pdf = pdf.copy()
-                for col in columns:
-                    pdf[col] = decoders[col](pdf[col].values)
-                return pdf
-
-            return pdf_decoder
-
-        self.encoder_ = make_encoder(self.categorical_columns_, self.categories_, self.dtype)
-        self.decoder_ = make_decoder(self.categorical_columns_, self.categories_, self.dtypes_)
         return self
 
     def transform(self, X, y=None):
@@ -308,10 +259,11 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
                 "columns. Got {!r}, expected {!r}".format(X.columns, self.columns)
             )
 
+        encoder = self.make_encoder(self.categorical_columns_, self.categories_, self.dtype)
         if isinstance(X, pd.DataFrame):
-            X = self.encoder_(X)
+            X = encoder(X)
         elif isinstance(X, dd.DataFrame):
-            X = X.map_partitions(self.encoder_)
+            X = X.map_partitions(encoder)
         else:
             raise TypeError("Unexpected type {}".format(type(X)))
 
@@ -346,9 +298,181 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
                 X._chunks = chunks
             X = dd.from_dask_array(X, columns=self.columns_)
 
+        decoder = self.make_decoder(self.categorical_columns_, self.categories_, self.dtypes_)
+
         if isinstance(X, dd.DataFrame):
-            X = X.map_partitions(self.decoder_)
+            X = X.map_partitions(decoder)
         else:
-            X = self.decoder_(X)
+            X = decoder(X)
 
         return X
+
+    @staticmethod
+    def make_encoder(columns, categories, dtype):
+        encoders = {}
+        for col in columns:
+            cat = categories[col]
+            unseen = len(cat)
+            m = dict(zip(cat, range(unseen)))
+            vf = np.vectorize(lambda x: m[x] if x in m.keys() else unseen)
+            encoders[col] = vf
+
+        def safe_ordinal_encoder(pdf):
+            assert isinstance(pdf, pd.DataFrame)
+
+            pdf = pdf.copy()
+            for col in columns:
+                r = encoders[col](pdf[col].values)
+                if r.dtype != dtype:
+                    r = r.astype(dtype)
+                pdf[col] = r
+            return pdf
+
+        return safe_ordinal_encoder
+
+    @staticmethod
+    def make_decoder(columns, categories, dtypes):
+        decoders = {}
+        for col in columns:
+            dtype = dtypes[col]
+            if dtype in (np.float32, np.float64, np.float):
+                default_value = np.nan
+            elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
+                default_value = -1
+            else:
+                default_value = None
+                dtype = np.object
+
+            cat = categories[col]
+            unseen = cat.shape[0]  # len(cat)
+            vf = np.vectorize(lambda x: cat[x] if unseen > x >= 0 else default_value,
+                              otypes=[dtype])
+            decoders[col] = vf
+
+        def safe_ordinal_decoder(pdf):
+            assert isinstance(pdf, pd.DataFrame)
+
+            pdf = pdf.copy()
+            for col in columns:
+                pdf[col] = decoders[col](pdf[col].values)
+            return pdf
+
+        return safe_ordinal_decoder
+
+
+class DataInterceptEncoder(BaseEstimator, TransformerMixin):
+
+    def __init__(self, fit=False, fit_transform=False, transform=False, inverse_transform=False):
+        self._intercept_fit = fit
+        self._intercept_fit_transform = fit_transform
+        self._intercept_transform = transform
+        self._intercept_inverse_transform = inverse_transform
+
+        super(DataInterceptEncoder, self).__init__()
+
+    def fit(self, X, *args, **kwargs):
+        if self._intercept_fit:
+            self.intercept(X, *args, **kwargs)
+
+        return self
+
+    def fit_transform(self, X, *args, **kwargs):
+        if self._intercept_fit_transform:
+            X = self.intercept(X, *args, **kwargs)
+
+        return X
+
+    def transform(self, X, *args, **kwargs):
+        if self._intercept_transform:
+            X = self.intercept(X, *args, **kwargs)
+
+        return X
+
+    def inverse_transform(self, X, *args, **kwargs):
+        if self._intercept_inverse_transform:
+            X = self.intercept(X, *args, **kwargs)
+
+        return X
+
+    def intercept(self, X, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class CallableAdapterEncoder(DataInterceptEncoder):
+    def __init__(self, fn, **kwargs):
+        assert callable(fn)
+
+        self.fn = fn
+
+        super(CallableAdapterEncoder, self).__init__(**kwargs)
+
+    def intercept(self, X, *args, **kwargs):
+        return self.fn(X, *args, **kwargs)
+
+
+class DataCacher(DataInterceptEncoder):
+    """
+    persist and cache dask dataframe and array
+    """
+
+    def __init__(self, cache_dict, cache_key, remove_keys=None, **kwargs):
+        assert isinstance(cache_dict, dict)
+
+        if isinstance(remove_keys, str):
+            remove_keys = set(remove_keys.split(','))
+
+        self._cache_dict = cache_dict
+        self.cache_key = cache_key
+        self.remove_keys = remove_keys
+
+        super(DataCacher, self).__init__(**kwargs)
+
+    def intercept(self, X, *args, **kwargs):
+        if self.cache_key:
+            if isinstance(X, (dd.DataFrame, da.Array)):
+                if logger.is_debug_enabled():
+                    logger.debug(f'persist and cache {X._name} as {self.cache_key}')
+
+                X = X.persist()
+
+            self._cache_dict[self.cache_key] = X
+
+        if self.remove_keys:
+            for key in self.remove_keys:
+                if key in self._cache_dict.keys():
+                    if logger.is_debug_enabled():
+                        logger.debug(f'remove cache {key}')
+                    del self._cache_dict[key]
+
+        return X
+
+    @property
+    def cache_dict(self):
+        return list(self._cache_dict.keys())
+
+
+class CacheCleaner(DataInterceptEncoder):
+
+    def __init__(self, cache_dict, **kwargs):
+        assert isinstance(cache_dict, dict)
+
+        self._cache_dict = cache_dict
+
+        super(CacheCleaner, self).__init__(**kwargs)
+
+    def intercept(self, X, *args, **kwargs):
+        if logger.is_debug_enabled():
+            logger.debug(f'clean cache with {list(self._cache_dict.keys())}')
+        self._cache_dict.clear()
+
+        return X
+
+    @property
+    def cache_dict(self):
+        return list(self._cache_dict.keys())
+
+    # # override this to remove 'cache_dict' from estimator __expr__
+    # @classmethod
+    # def _get_param_names(cls):
+    #     params = super()._get_param_names()
+    #     return [p for p in params if p != 'cache_dict']
