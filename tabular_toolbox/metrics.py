@@ -53,8 +53,10 @@ def _calc_score_sklean(y_true, y_preds, y_proba=None, metrics=('accuracy',), tas
 
             if metric == 'auc':
                 if len(y_proba.shape) == 2:
-
-                    score['auc'] = sk_metrics.roc_auc_score(y_true, y_proba[:, 1], multi_class='ovo')
+                    if task == 'multiclass':
+                        score['auc'] = sk_metrics.roc_auc_score(y_true, y_proba, multi_class='ovo')
+                    else:
+                        score['auc'] = sk_metrics.roc_auc_score(y_true, y_proba[:, 1])
                 else:
                     score['auc'] = sk_metrics.roc_auc_score(y_true, y_proba)
 

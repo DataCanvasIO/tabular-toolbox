@@ -80,7 +80,7 @@ class GreedyEnsemble(BaseEnsemble):
                     mean_predictions = pred
                 elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
                     mean_predictions = mean_predictions[:, 1]
-                score = self.scorer._score_func(y_true, mean_predictions) * self.scorer._sign
+                score = self.scorer._score_func(y_true, mean_predictions, **self.scorer._kwargs) * self.scorer._sign
                 stack_scores.append(score)
 
             best = np.argmax(stack_scores)
@@ -104,7 +104,11 @@ class GreedyEnsemble(BaseEnsemble):
         assert len(self.weights_) == predictions.shape[1]
         if len(predictions.shape) == 3 and self.task == 'binary':
             predictions = predictions[:, :, -1]
-        proba = np.sum(predictions * self.weights_, axis=1)
+        if len(predictions.shape) == 3:
+            weights = np.expand_dims(self.weights_, axis=1).repeat(predictions.shape[2], 1)
+        else:
+            weights = self.weights_
+        proba = np.sum(predictions * weights, axis=1)
         pred = self.proba2predict(proba)
         return pred
 
