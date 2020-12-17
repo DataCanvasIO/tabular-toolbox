@@ -349,8 +349,8 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
         x             transformed columns (numpy.ndarray)
         alias         base name to use for the selected columns
         """
-        logger.debug(
-            f'get_names: {isinstance(columns, list)}, len(columns):{len(columns)} columns:{columns}, alias:{alias}')
+        # logger.debug(
+        #     f'get_names: {isinstance(columns, list)}, len(columns):{len(columns)} columns:{columns}, alias:{alias}')
         if alias is not None:
             name = alias
         elif isinstance(columns, list):
@@ -365,7 +365,7 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
             # If we are dealing with multiple transformers for these columns
             # attempt to extract the names from each of them, starting from the
             # last one
-            logger.debug(f'transformer:{transformer}')
+            # logger.debug(f'transformer:{transformer}')
             if isinstance(transformer, (TransformerPipeline, Pipeline)):
                 inverse_steps = transformer.steps[::-1]
                 estimators = (estimator for name, estimator in inverse_steps)
@@ -379,7 +379,8 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
                 names = _get_feature_names(transformer, columns)
 
             if logger.is_debug_enabled():
-                logger.debug(f'names:{names}')
+                # logger.debug(f'names:{names}')
+                logger.debug(f'names:{len(names)}')
             if names is not None and len(names) == num_cols:
                 return list(names)  # ['%s_%s' % (name, o) for o in names]
             # otherwise, return name concatenated with '_1', '_2', etc.
@@ -415,12 +416,17 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
         for columns, transformers, options in self.built_features:
             if callable(columns):
                 columns = columns(X)
-            input_df = options.get('input_df', self.input_df)
             if columns is None or len(columns) < 1:
                 continue
+
+            if logger.is_debug_enabled():
+                action = 'fit_transform' if do_fit else 'transform'
+                logger.debug(f'{action} {len(columns)} columns with:\n{transformers}')
+
             # columns could be a string or list of
             # strings; we don't care because pandas
             # will handle either.
+            input_df = options.get('input_df', self.input_df)
             Xt = self._get_col_subset(X, columns, input_df)
             if transformers is not None:
                 with add_column_names_to_exception(columns):
@@ -436,11 +442,13 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
 
             extracted.append(_handle_feature(Xt))
             if logger.is_debug_enabled():
-                logger.debug(f'columns:{columns}')
+                # logger.debug(f'columns:{columns}')
+                logger.debug(f'columns:{len(columns)}')
             alias = options.get('alias')
             self.transformed_names_ += self.get_names(columns, transformers, Xt, alias)
             if logger.is_debug_enabled():
-                logger.debug(f'transformed_names_:{self.transformed_names_}')
+                # logger.debug(f'transformed_names_:{self.transformed_names_}')
+                logger.debug(f'transformed_names_:{len(self.transformed_names_)}')
 
         # handle features not explicitly selected
         if self.built_default is not False:
