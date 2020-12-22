@@ -3,6 +3,7 @@ __author__ = 'yangjian'
 """
 
 """
+import time
 from sklearn.metrics import get_scorer
 from sklearn.model_selection import train_test_split
 from collections import defaultdict
@@ -33,6 +34,7 @@ class BaseEstimator():
             predict = (proba > proba_threshold).astype('int32')
         return predict
 
+
 class Evaluator():
     def evaluate(self, data, target, task, estimators, scorers, test_size=0.3, random_state=9527):
         y = data.pop(target)
@@ -43,11 +45,13 @@ class Evaluator():
         X_train, X_test, y_train, y_test = train_test_split(data, y, test_size=test_size, random_state=random_state,
                                                             stratify=stratify)
 
-        result = defaultdict(lambda: defaultdict(float))
-
+        result = []
+        errors = []
         for estimator in estimators:
             try:
+                starttime = time.time()
                 estimator.train(X_train, y_train, X_test)
+                elapsed = time.time() - starttime
                 for scoring in scorers:
                     if isinstance(scoring, str):
                         scorer = get_scorer(scoring)
@@ -55,8 +59,9 @@ class Evaluator():
                     else:
                         metric = str(scoring)
                     score = scorer(estimator, X_test, y_test)
-                    result[estimator.name][metric] = score
-            except Exception as e:
-                result[estimator.name] = str(e)
 
-        return result
+                    result.append((estimator.name, metric, score, elapsed, time.strftime("%Y-%m-%d %H:%M:%S")))
+            except Exception as e:
+                errors.append((estimator.name, str(e)))
+
+        return result, errors

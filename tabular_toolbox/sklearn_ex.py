@@ -9,8 +9,7 @@ import pandas as pd
 from lightgbm import LGBMRegressor, LGBMClassifier
 from sklearn.metrics import log_loss, mean_squared_error
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler
 from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted
 
@@ -171,6 +170,22 @@ class SafeOrdinalEncoder(OrdinalEncoder):
         return result
 
 
+class LogStandardScaler:
+    def __init__(self, copy=True, with_mean=True, with_std=True):
+        self.scaler = StandardScaler(copy=copy, with_mean=with_mean, with_std=with_std)
+        self.min_values = None
+
+    def fit(self, X, y=None):
+        self.X_min_values = np.min(X)
+        self.scaler.fit(np.log(X - self.X_min_values + 1))
+        return self
+
+    def transform(self, X):
+        X = np.log(np.clip(X - self.X_min_values + 1, a_min=1, a_max=None))
+        X = self.scaler.transform(X)
+        return X
+
+
 class SkewnessKurtosisTransformer:
     def __init__(self, transform_fn=None, skew_threshold=0.5, kurtosis_threshold=0.5):
         self.columns_ = []
@@ -184,7 +199,7 @@ class SkewnessKurtosisTransformer:
         assert len(X.shape) == 2
         self.columns_ = column_skewness_kurtosis(X, skew_threshold=self.skewness_threshold,
                                                  kurtosis_threshold=self.kurtosis_threshold)
-        logger.info(f'Selected columns:{self.columns_}')
+        logger.info(f'SkewnessKurtosisTransformer - selected columns:{self.columns_}')
         return self
 
     def transform(self, X):
