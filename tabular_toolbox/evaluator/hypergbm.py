@@ -16,6 +16,7 @@ from hypernets.core import EarlyStoppingCallback, SummaryCallback
 
 class HyperGBMEstimator(BaseEstimator):
     def __init__(self, task, scorer, mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
+                 time_limit=3600, expected_reward=None,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3, **kwargs):
         super(HyperGBMEstimator, self).__init__(task)
         self.name = 'HyperGBM'
@@ -26,6 +27,8 @@ class HyperGBMEstimator(BaseEstimator):
         self.max_trails = max_trails
         self.use_cache = use_cache
         self.earlystop_rounds = earlystop_rounds
+        self.time_limit = time_limit
+        self.expected_reward = expected_reward
         self.search_space_fn = search_space_fn if search_space_fn is not None else lambda: search_space_general(
             early_stopping_rounds=20, verbose=0)
         self.ensemble_size = ensemble_size
@@ -42,7 +45,8 @@ class HyperGBMEstimator(BaseEstimator):
                                      regularized=True, candidates_size=10, use_meta_learner=self.use_meta_learner)
         # searcher = RandomSearcher(lambda: search_space_general(early_stopping_rounds=20, verbose=0),
         #                     optimize_direction=OptimizeDirection.Maximize)
-        es = EarlyStoppingCallback(self.earlystop_rounds, 'max')
+        es = EarlyStoppingCallback(self.earlystop_rounds, 'max', time_limit=self.time_limit,
+                                   expected_reward=self.expected_reward)
 
         hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', clear_cache=False,
                       callbacks=[es, SummaryCallback()])
