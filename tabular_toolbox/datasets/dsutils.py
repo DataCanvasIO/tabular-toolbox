@@ -21,3 +21,8 @@ def load_glass_uci():
     print(f'Base dir:{basedir}')
     data = pd.read_csv(f'{basedir}/glass_uci.csv', header=None)
     return data
+
+def load_blood():
+    import pandas as pd
+    data = pd.read_csv(f'{basedir}/blood.csv')
+    return data
