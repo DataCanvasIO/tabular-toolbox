@@ -39,10 +39,7 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
             raise Exception(f'Unsupported type "{type(X)}"')
 
     def _fit_df(self, X, y=None):
-        if y is not None:
-            return self._fit_array(X.values, y.values)
-        else:
-            return self._fit_array(X.values)
+        return self._fit_array(X.values, y.values if y else None)
 
     def _fit_array(self, X, y=None):
         n_features = X.shape[1]
@@ -125,8 +122,8 @@ class TruncatedSVD(dm_dec.TruncatedSVD):
             X = dd.from_pandas(X, npartitions=2)
 
         if isinstance(X, dd.DataFrame):
-            r = super(TruncatedSVD, self).fit_transform(X.values.compute_chunk_sizes(),
-                                                        y.values.compute_chunk_sizes())
+            y = y.values.compute_chunk_sizes() if y else None
+            r = super(TruncatedSVD, self).fit_transform(X.values.compute_chunk_sizes(), y)
         else:
             r = super(TruncatedSVD, self).fit_transform(X, y)
 
