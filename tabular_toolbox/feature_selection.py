@@ -6,11 +6,14 @@ __author__ = 'yangjian'
 
 from collections import defaultdict
 
+import pandas as pd
 from scipy.cluster import hierarchy
 from scipy.stats import spearmanr
 
+from tabular_toolbox import sklearn_ex as skex, dask_ex as dex
 
-def select_by_multicollinearity(X):
+
+def select_by_multicollinearity(X, method=None):
     """
     Adapted from https://scikit-learn.org/stable/auto_examples/inspection/plot_permutation_importance_multicollinear.html
     handling multicollinearity is by performing hierarchical clustering on the features’ Spearman
@@ -19,7 +22,15 @@ def select_by_multicollinearity(X):
     :param X:
     :return:
     """
-    corr = spearmanr(X).correlation
+    if (method is None or method == 'spearman') and isinstance(X, pd.DataFrame):
+        corr = spearmanr(X).correlation
+    elif isinstance(X, pd.DataFrame):
+        Xt = skex.SafeOrdinalEncoder().fit_transform(X)
+        corr = Xt.corr(method=method).values
+    else:  # dask
+        Xt = dex.SafeOrdinalEncoder().fit_transform(X)
+        corr = Xt.corr(method='pearson' if method is None else method).compute().values
+
     corr_linkage = hierarchy.ward(corr)
 
     cluster_ids = hierarchy.fcluster(corr_linkage, 1, criterion='distance')
