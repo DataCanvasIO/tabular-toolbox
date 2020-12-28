@@ -321,14 +321,13 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
         def encode_column(x, c):
             return mappings[c][x]
 
-        encoders = {c: np.vectorize(encode_column, excluded='c', otypes=[dtype]) for c in columns}
-
         def safe_ordinal_encoder(pdf):
             assert isinstance(pdf, pd.DataFrame)
 
             pdf = pdf.copy()
+            vf = np.vectorize(encode_column, excluded='c', otypes=[dtype])
             for col in columns:
-                r = encoders[col](pdf[col].values, col)
+                r = vf(pdf[col].values, col)
                 if r.dtype != dtype:
                     print(r.dtype, 'astype', dtype)
                     r = r.astype(dtype)
@@ -354,14 +353,13 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
                 else:
                     return None
 
-        decoders = {c: np.vectorize(decode_column, excluded='col', otypes=[dtypes[c]]) for c in columns}
-
         def safe_ordinal_decoder(pdf):
             assert isinstance(pdf, pd.DataFrame)
 
             pdf = pdf.copy()
             for col in columns:
-                pdf[col] = decoders[col](pdf[col].values, col)
+                vf = np.vectorize(decode_column, excluded='col', otypes=[dtypes[col]])
+                pdf[col] = vf(pdf[col].values, col)
             return pdf
 
         return safe_ordinal_decoder
