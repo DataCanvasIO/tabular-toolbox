@@ -125,8 +125,8 @@ class TruncatedSVD(dm_dec.TruncatedSVD):
             X = dd.from_pandas(X, npartitions=2)
 
         if isinstance(X, dd.DataFrame):
-            y = y.values.compute_chunk_sizes() if y else None
-            r = super(TruncatedSVD, self).fit_transform(X.values.compute_chunk_sizes(), y)
+            # y = y.values.compute_chunk_sizes() if y is not None else None
+            r = super(TruncatedSVD, self).fit_transform(X.values.compute_chunk_sizes(), None)
         else:
             r = super(TruncatedSVD, self).fit_transform(X, y)
 
