@@ -37,13 +37,20 @@ class BaseEstimator():
 
 class Evaluator():
     def evaluate(self, data, target, task, estimators, scorers, test_size=0.3, random_state=9527):
-        y = data.pop(target)
-        if task == 'binary':
-            stratify = y
+        if isinstance(data, tuple):
+            assert len(data) == 2
+            X_train = data[0]
+            X_test = data[1]
+            y_train = X_train.pop(target)
+            y_test = X_test.pop(target)
         else:
-            stratify = None
-        X_train, X_test, y_train, y_test = train_test_split(data, y, test_size=test_size, random_state=random_state,
-                                                            stratify=stratify)
+            y = data.pop(target)
+            if task == 'binary':
+                stratify = y
+            else:
+                stratify = None
+            X_train, X_test, y_train, y_test = train_test_split(data, y, test_size=test_size, random_state=random_state,
+                                                                stratify=stratify)
 
         result = []
         errors = []
