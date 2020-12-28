@@ -63,5 +63,7 @@ class Evaluator():
                     result.append((estimator.name, metric, score, elapsed, time.strftime("%Y-%m-%d %H:%M:%S")))
             except Exception as e:
                 errors.append((estimator.name, str(e)))
+                import traceback
+                print(traceback.format_exc())
 
         return result, errors
