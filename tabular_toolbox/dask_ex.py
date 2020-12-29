@@ -2,6 +2,8 @@
 """
 
 """
+from collections import defaultdict
+
 import dask.array as da
 import dask.dataframe as dd
 import numpy as np
@@ -10,6 +12,7 @@ from dask_ml import decomposition as dm_dec
 from dask_ml import preprocessing as dm_pre
 from sklearn import preprocessing as sk_pre
 from sklearn.base import BaseEstimator, TransformerMixin
+
 from .utils import logging
 
 logger = logging.get_logger(__name__)
@@ -122,8 +125,8 @@ class TruncatedSVD(dm_dec.TruncatedSVD):
             X = dd.from_pandas(X, npartitions=2)
 
         if isinstance(X, dd.DataFrame):
-            y = y.values.compute_chunk_sizes() if y else None
-            r = super(TruncatedSVD, self).fit_transform(X.values.compute_chunk_sizes(), y)
+            # y = y.values.compute_chunk_sizes() if y is not None else None
+            r = super(TruncatedSVD, self).fit_transform(X.values.compute_chunk_sizes(), None)
         else:
             r = super(TruncatedSVD, self).fit_transform(X, y)
 
@@ -306,21 +309,27 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
 
     @staticmethod
     def make_encoder(columns, categories, dtype):
-        encoders = {}
+        mappings = {}
         for col in columns:
             cat = categories[col]
             unseen = len(cat)
-            m = dict(zip(cat, range(unseen)))
-            vf = np.vectorize(lambda x: m[x] if x in m.keys() else unseen)
-            encoders[col] = vf
+            m = defaultdict(dtype)
+            for k, v in zip(cat, range(unseen)):
+                m[k] = dtype(v + 1)
+            mappings[col] = m
+
+        def encode_column(x, c):
+            return mappings[c][x]
 
         def safe_ordinal_encoder(pdf):
             assert isinstance(pdf, pd.DataFrame)
 
             pdf = pdf.copy()
+            vf = np.vectorize(encode_column, excluded='c', otypes=[dtype])
             for col in columns:
-                r = encoders[col](pdf[col].values)
+                r = vf(pdf[col].values, col)
                 if r.dtype != dtype:
+                    print(r.dtype, 'astype', dtype)
                     r = r.astype(dtype)
                 pdf[col] = r
             return pdf
@@ -329,29 +338,28 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
 
     @staticmethod
     def make_decoder(columns, categories, dtypes):
-        decoders = {}
-        for col in columns:
-            dtype = dtypes[col]
-            if dtype in (np.float32, np.float64, np.float):
-                default_value = np.nan
-            elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
-                default_value = -1
-            else:
-                default_value = None
-                dtype = np.object
-
+        def decode_column(x, col):
             cat = categories[col]
+            xi = int(x)
             unseen = cat.shape[0]  # len(cat)
-            vf = np.vectorize(lambda x: cat[x] if unseen > x >= 0 else default_value,
-                              otypes=[dtype])
-            decoders[col] = vf
+            if unseen >= xi >= 1:
+                return cat[xi - 1]
+            else:
+                dtype = dtypes[col]
+                if dtype in (np.float32, np.float64, np.float):
+                    return np.nan
+                elif dtype in (np.int32, np.int64, np.int, np.uint32, np.uint64, np.uint):
+                    return -1
+                else:
+                    return None
 
         def safe_ordinal_decoder(pdf):
             assert isinstance(pdf, pd.DataFrame)
 
             pdf = pdf.copy()
             for col in columns:
-                pdf[col] = decoders[col](pdf[col].values)
+                vf = np.vectorize(decode_column, excluded='col', otypes=[dtypes[col]])
+                pdf[col] = vf(pdf[col].values, col)
             return pdf
 
         return safe_ordinal_decoder

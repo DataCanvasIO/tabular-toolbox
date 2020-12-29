@@ -15,7 +15,8 @@ from . import BaseEstimator
 
 
 class HyperDTEstimator(BaseEstimator):
-    def __init__(self, task, reward_metric, max_trails=30, epochs=100, earlystop_rounds=30, **kwargs):
+    def __init__(self, task, reward_metric, max_trails=30, epochs=100, earlystop_rounds=30, time_limit=3600,
+                 expected_reward=None, **kwargs):
         super(HyperDTEstimator, self).__init__(task)
         self.name = 'HyperDT'
         self.kwargs = kwargs
@@ -24,11 +25,14 @@ class HyperDTEstimator(BaseEstimator):
         self.reward_metric = reward_metric
         self.epochs = epochs
         self.earlystop_rounds = earlystop_rounds
+        self.time_limit = time_limit
+        self.expected_reward = expected_reward
 
     def train(self, X, y, X_test):
         searcher = EvolutionSearcher(mini_dt_space, optimize_direction=OptimizeDirection.Maximize, population_size=30,
                                      sample_size=10, regularized=True, candidates_size=10)
-        es = EarlyStoppingCallback(self.earlystop_rounds, 'max')
+        es = EarlyStoppingCallback(self.earlystop_rounds, 'max', time_limit=self.time_limit,
+                                   expected_reward=self.expected_reward)
 
         hdt = HyperDT(searcher,
                       callbacks=[es],
@@ -47,8 +51,6 @@ class HyperDTEstimator(BaseEstimator):
 
     def predict_proba(self, X):
         proba = self.estimator.predict_proba(X)
-        if self.task == 'binary':
-            proba = np.hstack((1 - proba, proba))
         return proba
 
     def predict(self, X):

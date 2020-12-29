@@ -37,8 +37,29 @@ class Test_Evaluator():
                                     random_state=9527)
         assert result
 
+    def test_splitdata(self):
+        X = dsutils.load_blood()  # .load_bank().head(1000)
+        task = 'binary'
+        hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo')
+
+        evaluator = Evaluator()
+        result = evaluator.evaluate((X[:-100], X[-100:]),
+                                    target='Class',
+                                    task=task,
+                                    estimators=[
+                                        # autosklearn_estimator,
+                                        hypergbm_estimator,
+                                        # h2o_estimator,
+                                        # hyperdt_estimator,
+                                        # hypergbm_estimator_fg
+                                    ],
+                                    scorers=['accuracy', 'roc_auc_ovo'],
+                                    test_size=0.3,
+                                    random_state=9527)
+        assert result
+
     def test_all_binary(self):
-        X = dsutils.load_blood() #.load_bank().head(1000)
+        X = dsutils.load_blood()  # .load_bank().head(1000)
         task = 'binary'
         hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo')
         hypergbm_estimator_fg = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', max_trails=3,
@@ -48,17 +69,17 @@ class Test_Evaluator():
         autosklearn_estimator = AutoSklearnEstimator(task=task, time_left_for_this_task=30,
                                                      per_run_time_limit=10)
         h2o_estimator = H2OEstimator(task=task)
-        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trails=10, epochs=1)
+        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trails=3, epochs=1)
         evaluator = Evaluator()
         result = evaluator.evaluate(X,
                                     target='Class',
                                     task=task,
                                     estimators=[
-                                        autosklearn_estimator,
+                                        # autosklearn_estimator,
                                         # hypergbm_estimator,
                                         # h2o_estimator,
-                                        # hyperdt_estimator,
-                                        #hypergbm_estimator_fg
+                                        hyperdt_estimator,
+                                        # hypergbm_estimator_fg
                                     ],
                                     scorers=['accuracy', 'roc_auc_ovo'],
                                     test_size=0.3,
