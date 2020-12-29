@@ -12,9 +12,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler
 from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted
+from sklearn.impute import SimpleImputer
 
-from .column_selector import column_skewness_kurtosis, column_int, column_object_category_bool
-from .utils import logging, infer_task_type
+from tabular_toolbox.column_selector import column_skewness_kurtosis, column_int, column_object_category_bool
+from tabular_toolbox.utils import logging, infer_task_type
 
 logger = logging.get_logger(__name__)
 
@@ -342,3 +343,9 @@ class FeatureSelectionTransformer():
 
     def transform(self, X):
         return X[self.columns_]
+
+
+class FloatOutputImputer(SimpleImputer):
+
+    def transform(self, X):
+        return super().transform(X).astype(np.float64)
