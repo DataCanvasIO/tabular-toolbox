@@ -71,7 +71,7 @@ def feature_selection(X_train, X_test,
     if copy_data:
         X_train = copy.deepcopy(X_train)
         X_test = copy.deepcopy(X_test)
-
+    scores = None
     if remove_shift_variable:
         scores = covariate_shift_score(X_train, X_test, scorer=variable_shift_scorer)
         remain_features = []
@@ -111,7 +111,7 @@ def feature_selection(X_train, X_test,
             if callbacks is not None:
                 for callback in callbacks:
                     callback.on_task_finished(round_no=round, auc=detector.auc_, features=detector.feature_names_)
-            return detector.feature_names_, history
+            return detector.feature_names_, history, scores
 
         indices = np.argsort(detector.feature_importances_)
         if indices.shape[0] <= min_features:
@@ -121,7 +121,7 @@ def feature_selection(X_train, X_test,
             if callbacks is not None:
                 for callback in callbacks:
                     callback.on_task_break(round_no=round, auc=detector.auc_, features=detector.feature_names_)
-            return detector.feature_names_, history
+            return detector.feature_names_, history, scores
 
         removes = int(indices.shape[0] * remove_size)
         if removes <= 0:
@@ -131,7 +131,7 @@ def feature_selection(X_train, X_test,
             if callbacks is not None:
                 for callback in callbacks:
                     callback.on_task_break(round_no=round, auc=detector.auc_, features=detector.feature_names_)
-            return detector.feature_names_, history
+            return detector.feature_names_, history, scores
 
         if (indices.shape[0] - removes) < min_features:
             removes = indices.shape[0] - min_features
@@ -217,7 +217,7 @@ class DriftDetector():
         estimators = []
 
         for n_fold, (train_idx, valid_idx) in enumerate(iterators.split(X_merge, y)):
-            print(f'Fold:{n_fold + 1}')
+            logger.info(f'Fold:{n_fold + 1}')
             x_train_fold, y_train_fold = X_merge.iloc[train_idx], y.iloc[train_idx]
             x_val_fold, y_val_fold = X_merge.iloc[valid_idx], y.iloc[valid_idx]
             estimator = copy.deepcopy(self.estimator_)

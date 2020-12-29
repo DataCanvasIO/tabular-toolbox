@@ -53,9 +53,9 @@ class HyperGBMEstimator(BaseEstimator):
 
         log_callback = ConsoleCallback()
         self.experiment = CompeteExperiment(hk, X, y, X_test=X_test, eval_size=self.eval_size,
-                                            callbacks=[log_callback],
+                                            callbacks=[],
                                             scorer=get_scorer(self.scorer),
-                                            drop_feature_with_collinearity=False,
+                                            drop_feature_with_collinearity=True,
                                             drift_detection=True,
                                             mode=self.mode,
                                             n_est_feature_importance=5,

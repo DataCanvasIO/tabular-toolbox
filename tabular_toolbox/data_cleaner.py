@@ -277,3 +277,24 @@ class DataCleaner:
             for dtype, cols in self.df_meta_.items():
                 meta[dtype] = [c for c in cols if c not in columns]
             self.df_meta_ = meta
+
+    def _repr_html_(self):
+        cleaner_info = []
+        cleaner_info.append(('Meta', self.df_meta_))
+        cleaner_info.append(('Dropped constant columns', self.dropped_constant_columns_))
+        cleaner_info.append(('Dropped idness columns', self.dropped_idness_columns_))
+        cleaner_info.append(('Dropped duplicated columns', self.dropped_duplicated_columns_))
+        cleaner_info.append(('-------------params-------------', '-------------values-------------'))
+        cleaner_info.append(('nan_chars', self.nan_chars))
+        cleaner_info.append(('correct_object_dtype', self.correct_object_dtype))
+        cleaner_info.append(('drop_constant_columns', self.drop_constant_columns))
+        cleaner_info.append(('drop_label_nan_rows', self.drop_label_nan_rows))
+        cleaner_info.append(('drop_idness_columns', self.drop_idness_columns))
+        cleaner_info.append(('replace_inf_values', self.replace_inf_values))
+        cleaner_info.append(('drop_columns', self.drop_columns))
+        cleaner_info.append(('drop_duplicated_columns', self.drop_duplicated_columns))
+        cleaner_info.append(('reduce_mem_usage', self.reduce_mem_usage))
+        cleaner_info.append(('int_convert_to', self.int_convert_to))
+
+        html = pd.DataFrame(cleaner_info, columns=['key', 'value'])._repr_html_()
+        return html

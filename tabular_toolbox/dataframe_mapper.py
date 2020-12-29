@@ -330,7 +330,7 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
                 with add_column_names_to_exception(columns):
                     Xt = self._get_col_subset(X, columns, input_df)
                     _call_fit(transformers.fit, Xt, y)
-                    print(f'{transformers}:{Xt.dtypes}')
+                    #print(f'{transformers}:{Xt.dtypes}')
 
         # handle features not explicitly selected
         if self.built_default:  # not False and not None

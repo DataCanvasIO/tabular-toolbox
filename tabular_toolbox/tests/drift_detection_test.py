@@ -100,12 +100,12 @@ class Test_drift_detection:
         X_test = df[7000:]
         # = train_test_split(df, train_size=0.7,  random_state=9527)
 
-        remain_features, history = feature_selection(X_train, X_test, remove_shift_variable=False, auc_threshold=0.55,
+        remain_features, history, scores = feature_selection(X_train, X_test, remove_shift_variable=False, auc_threshold=0.55,
                                                      min_features=15,
                                                      remove_size=0.2, copy_data=True)
         assert len(remain_features) == 15
 
-        remain_features, history = feature_selection(X_train, X_test, remove_shift_variable=True, auc_threshold=0.55,
+        remain_features, history, scores = feature_selection(X_train, X_test, remove_shift_variable=True, auc_threshold=0.55,
                                                      min_features=15,
                                                      remove_size=0.2, copy_data=True)
 

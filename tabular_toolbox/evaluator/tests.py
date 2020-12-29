@@ -56,6 +56,7 @@ class Test_Evaluator():
                                     scorers=['accuracy', 'roc_auc_ovo'],
                                     test_size=0.3,
                                     random_state=9527)
+
         assert result
 
     def test_all_binary(self):

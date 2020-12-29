@@ -48,6 +48,15 @@ class GreedyEnsemble(BaseEnsemble):
         self.scorer = get_scorer(scoring)
         self.ensemble_size = ensemble_size
 
+    def _repr_html_(self):
+        import pandas as pd
+        df = pd.DataFrame([('weights', self.weights_),
+                           ('scores', self.scores_),
+                           ('best_stack', self.best_stack_),
+                           ('hits', self.hits_),
+                           ('ensemble_size', self.ensemble_size)])
+        return df._repr_html_()
+
     def fit_predictions(self, predictions, y_true):
         scores = []
         best_stack = []
