@@ -17,8 +17,9 @@ from hypernets.core import EarlyStoppingCallback, SummaryCallback
 class HyperGBMEstimator(BaseEstimator):
     def __init__(self, task, scorer, mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
                  time_limit=3600, expected_reward=None,
+                 drop_feature_with_collinearity=False,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3,
-                 cv=True, num_folds=3,
+                 cv=True, num_folds=3, class_balancing='sample_weight',
                  retrain_on_wholedata=False,
                  **kwargs):
         super(HyperGBMEstimator, self).__init__(task)
@@ -36,12 +37,13 @@ class HyperGBMEstimator(BaseEstimator):
         self.time_limit = time_limit
         self.expected_reward = expected_reward
         self.search_space_fn = search_space_fn if search_space_fn is not None else lambda: search_space_general(
-            early_stopping_rounds=20, verbose=0, cv=cv, num_folds=num_folds)
+            early_stopping_rounds=20, verbose=0, cv=cv, num_folds=num_folds, class_balancing=class_balancing)
         self.ensemble_size = ensemble_size
         self.experiment = None
         self.use_meta_learner = use_meta_learner
         self.eval_size = eval_size
         self.retrain_on_wholedata = retrain_on_wholedata
+        self.drop_feature_with_collinearity = drop_feature_with_collinearity
 
     def train(self, X, y, X_test):
         # searcher = MCTSSearcher(self.search_space_fn, use_meta_learner=self.use_meta_learner, max_node_space=10,
@@ -62,7 +64,7 @@ class HyperGBMEstimator(BaseEstimator):
         self.experiment = CompeteExperiment(hk, X, y, X_test=X_test, eval_size=self.eval_size,
                                             callbacks=[],
                                             scorer=get_scorer(self.scorer),
-                                            drop_feature_with_collinearity=True,
+                                            drop_feature_with_collinearity=self.drop_feature_with_collinearity,
                                             drift_detection=True,
                                             mode=self.mode,
                                             n_est_feature_importance=5,
