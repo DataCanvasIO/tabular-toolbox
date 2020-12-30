@@ -18,6 +18,7 @@ class HyperGBMEstimator(BaseEstimator):
     def __init__(self, task, scorer, mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
                  time_limit=3600, expected_reward=None,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3,
+                 cv=True, num_folds=3,
                  retrain_on_wholedata=False,
                  **kwargs):
         super(HyperGBMEstimator, self).__init__(task)
@@ -35,7 +36,7 @@ class HyperGBMEstimator(BaseEstimator):
         self.time_limit = time_limit
         self.expected_reward = expected_reward
         self.search_space_fn = search_space_fn if search_space_fn is not None else lambda: search_space_general(
-            early_stopping_rounds=20, verbose=0, cv=True, num_folds=3)
+            early_stopping_rounds=20, verbose=0, cv=cv, num_folds=num_folds)
         self.ensemble_size = ensemble_size
         self.experiment = None
         self.use_meta_learner = use_meta_learner
