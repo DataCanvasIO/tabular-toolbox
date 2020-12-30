@@ -20,6 +20,7 @@ from sklearn.tree import DecisionTreeClassifier
 from .column_selector import column_object_category_bool, column_number_exclude_timedelta
 from .dataframe_mapper import DataFrameMapper
 from .utils import logging
+from .sklearn_ex import SafeOrdinalEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ matthews_corrcoef_scorer = make_scorer(matthews_corrcoef)
 
 def general_preprocessor():
     cat_transformer = Pipeline(
-        steps=[('imputer_cat', SimpleImputer(strategy='constant')), ('encoder', OrdinalEncoder())])
+        steps=[('imputer_cat', SimpleImputer(strategy='constant')), ('encoder', SafeOrdinalEncoder())])
     num_transformer = Pipeline(steps=[('imputer_num', SimpleImputer(strategy='mean')), ('scaler', StandardScaler())])
 
     preprocessor = DataFrameMapper(features=[(column_object_category_bool, cat_transformer),
@@ -241,6 +242,7 @@ class DriftDetector():
         return self
 
     def predict_proba(self, X):
+        X = copy.deepcopy(X)
         assert self.fitted, 'Please fit it first.'
 
         cat_cols = column_object_category_bool(X)
