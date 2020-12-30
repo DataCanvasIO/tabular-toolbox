@@ -17,7 +17,9 @@ from hypernets.core import EarlyStoppingCallback, SummaryCallback
 class HyperGBMEstimator(BaseEstimator):
     def __init__(self, task, scorer, mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
                  time_limit=3600, expected_reward=None,
-                 search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3, **kwargs):
+                 search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3,
+                 retrain_on_wholedata=False,
+                 **kwargs):
         super(HyperGBMEstimator, self).__init__(task)
         if kwargs.get('name') is not None:
             self.name = kwargs['name']
@@ -38,6 +40,7 @@ class HyperGBMEstimator(BaseEstimator):
         self.experiment = None
         self.use_meta_learner = use_meta_learner
         self.eval_size = eval_size
+        self.retrain_on_wholedata = retrain_on_wholedata
 
     def train(self, X, y, X_test):
         # searcher = MCTSSearcher(self.search_space_fn, use_meta_learner=self.use_meta_learner, max_node_space=10,
@@ -63,7 +66,8 @@ class HyperGBMEstimator(BaseEstimator):
                                             mode=self.mode,
                                             n_est_feature_importance=5,
                                             importance_threshold=1e-5,
-                                            ensemble_size=self.ensemble_size
+                                            ensemble_size=self.ensemble_size,
+                                            retrain_on_wholedata=self.retrain_on_wholedata,
                                             )
         self.estimator = self.experiment.run(use_cache=self.use_cache, max_trails=self.max_trails)
 
