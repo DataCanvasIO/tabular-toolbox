@@ -19,7 +19,10 @@ class HyperGBMEstimator(BaseEstimator):
                  time_limit=3600, expected_reward=None,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3, **kwargs):
         super(HyperGBMEstimator, self).__init__(task)
-        self.name = 'HyperGBM'
+        if kwargs.get('name') is not None:
+            self.name = kwargs['name']
+        else:
+            self.name = 'HyperGBM'
         self.scorer = scorer
         self.mode = mode
         self.kwargs = kwargs
@@ -30,7 +33,7 @@ class HyperGBMEstimator(BaseEstimator):
         self.time_limit = time_limit
         self.expected_reward = expected_reward
         self.search_space_fn = search_space_fn if search_space_fn is not None else lambda: search_space_general(
-            early_stopping_rounds=20, verbose=0)
+            early_stopping_rounds=20, verbose=0, cv=True, num_folds=3)
         self.ensemble_size = ensemble_size
         self.experiment = None
         self.use_meta_learner = use_meta_learner
