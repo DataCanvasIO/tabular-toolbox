@@ -18,13 +18,80 @@ from .utils import logging
 logger = logging.get_logger(__name__)
 
 
+def is_dask_dataframe(X):
+    return isinstance(X, dd.DataFrame)
+
+
+def is_dask_array(X):
+    return isinstance(X, da.Array)
+
+
+def is_dask_object(X):
+    return isinstance(X, (da.Array, dd.DataFrame, dd.Series))
+
+
+def exist_dask_object(*args):
+    for a in args:
+        if isinstance(a, (da.Array, dd.DataFrame, dd.Series)):
+            return True
+    return False
+
+
+def exist_dask_dataframe(*args):
+    for a in args:
+        if isinstance(a, dd.DataFrame):
+            return True
+    return False
+
+
+def exist_dask_arrar(*args):
+    for a in args:
+        if isinstance(a, da.Array):
+            return True
+    return False
+
+
 def to_dask_type(X):
     if isinstance(X, np.ndarray):
         X = da.from_array(X)
     elif isinstance(X, (pd.DataFrame, pd.Series)):
-        X = dd.from_pandas(X, npartitions=2)
+        X = dd.from_pandas(X, npartitions=1)
 
     return X
+
+
+def make_chunk_size_known(a):
+    assert is_dask_array(a)
+
+    chunks = a.chunks
+    if any(np.nan in d for d in chunks):
+        if logger.is_debug_enabled():
+            logger.debug(f'call extracted array compute_chunk_sizes, shape: {a.shape}')
+        a = a.compute_chunk_sizes()
+    return a
+
+
+def hstack_array(arrs):
+    if len(arrs) > 1:
+        arrs = [make_chunk_size_known(a) for a in arrs]
+    return da.hstack(arrs)
+
+
+def vstack_array(arrs):
+    if len(arrs) > 1:
+        arrs = [make_chunk_size_known(a) for a in arrs]
+    return da.vstack(arrs)
+
+
+def concat_df(dfs, axis=0, repartition=True, **kwargs):
+    if exist_dask_dataframe(*dfs):
+        dfs = dd.concat(dfs, axis=axis, **kwargs)
+        if repartition:
+            dfs = dfs.repartition(npartitions=dfs[0].nartitions)
+    else:
+        dfs = pd.concat(dfs, axis=axis, **kwargs)
+
+    return dfs
 
 
 class MultiLabelEncoder(BaseEstimator, TransformerMixin):

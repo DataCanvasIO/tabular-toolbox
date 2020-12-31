@@ -17,6 +17,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import _name_estimators, Pipeline
 from sklearn.utils import tosequence
 
+from tabular_toolbox import dask_ex as dex
 from .utils import logging
 
 logger = logging.get_logger(__name__)
@@ -330,7 +331,7 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
                 with add_column_names_to_exception(columns):
                     Xt = self._get_col_subset(X, columns, input_df)
                     _call_fit(transformers.fit, Xt, y)
-                    #print(f'{transformers}:{Xt.dtypes}')
+                    # print(f'{transformers}:{Xt.dtypes}')
 
         # handle features not explicitly selected
         if self.built_default:  # not False and not None
@@ -491,21 +492,8 @@ class DataFrameMapper(BaseEstimator, TransformerMixin):
         # If any of the extracted features is sparse, combine sparsely.
         # Otherwise, combine as normal arrays.
         if isinstance(X, dd.DataFrame):
-            extracted = [a.values if isinstance(a, dd.DataFrame) else a
-                         for a in extracted]
-
-            def call_compute_chunk_size(a):
-                chunks = a.chunks
-                if any(np.nan in d for d in chunks):
-                    if logger.is_debug_enabled():
-                        logger.debug(f'call extracted array compute_chunk_sizes, shape: {a.shape}')
-                    a = a.compute_chunk_sizes()
-                return a
-
-            if len(extracted) > 1:
-                # extracted = [a.compute_chunk_sizes() for a in extracted]
-                extracted = [call_compute_chunk_size(a) for a in extracted]
-            stacked = da.hstack(extracted)  # , allow_unknown_chunksizes=True)
+            extracted = [a.values if isinstance(a, dd.DataFrame) else a for a in extracted]
+            stacked = dex.hstack_array(extracted)
         elif any(sparse.issparse(fea) for fea in extracted):
             stacked = sparse.hstack(extracted).tocsr()
             # return a sparse matrix only if the mapper was initialized
