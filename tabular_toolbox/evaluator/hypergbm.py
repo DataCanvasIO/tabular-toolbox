@@ -22,8 +22,10 @@ class HyperGBMEstimator(BaseEstimator):
                  train_test_split_strategy=None,
                  cv=True, num_folds=3, class_balancing='sample_weight',
                  retrain_on_wholedata=False,
+                 two_stage_importance_selection=True,
                  pseudo_labeling=False,
                  pseudo_labeling_proba_threshold=0.8,
+                 pseudo_labeling_resplit=False,
                  **kwargs):
         super(HyperGBMEstimator, self).__init__(task)
         if kwargs.get('name') is not None:
@@ -46,10 +48,11 @@ class HyperGBMEstimator(BaseEstimator):
         self.use_meta_learner = use_meta_learner
         self.eval_size = eval_size
         self.train_test_split_strategy = train_test_split_strategy
-
+        self.two_stage_importance_selection = two_stage_importance_selection
         self.retrain_on_wholedata = retrain_on_wholedata
         self.pseudo_labeling = pseudo_labeling
         self.pseudo_labeling_proba_threshold = pseudo_labeling_proba_threshold
+        self.pseudo_labeling_resplit = pseudo_labeling_resplit
         self.drop_feature_with_collinearity = drop_feature_with_collinearity
 
     def train(self, X, y, X_test):
@@ -77,9 +80,11 @@ class HyperGBMEstimator(BaseEstimator):
                                             mode=self.mode,
                                             n_est_feature_importance=5,
                                             importance_threshold=1e-5,
+                                            two_stage_importance_selection=self.two_stage_importance_selection,
                                             ensemble_size=self.ensemble_size,
                                             pseudo_labeling=self.pseudo_labeling,
                                             pseudo_labeling_proba_threshold=self.pseudo_labeling_proba_threshold,
+                                            pseudo_labeling_resplit=self.pseudo_labeling_resplit,
                                             retrain_on_wholedata=self.retrain_on_wholedata,
                                             )
         self.estimator = self.experiment.run(use_cache=self.use_cache, max_trails=self.max_trails)
