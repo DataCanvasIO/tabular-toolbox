@@ -81,7 +81,7 @@ def make_divisions_known(df):
         df = df.reset_index()
         new_columns = df.columns.tolist()
         index_name = set(new_columns) - set(columns)
-        df = df.reset_index(index_name if index_name else 'index')
+        df = df.set_index(index_name if index_name else 'index')
         assert df.known_divisions
 
     return df
