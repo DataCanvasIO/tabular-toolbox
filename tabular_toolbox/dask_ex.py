@@ -9,7 +9,9 @@ import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 from dask_ml import decomposition as dm_dec
+from dask_ml import model_selection as dm_sel
 from dask_ml import preprocessing as dm_pre
+from sklearn import model_selection as sk_sel
 from sklearn import preprocessing as sk_pre
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -71,6 +73,20 @@ def make_chunk_size_known(a):
     return a
 
 
+def make_divisions_known(df):
+    assert is_dask_dataframe(df)
+
+    if not df.known_divisions:
+        columns = df.columns.tolist()
+        df = df.reset_index()
+        new_columns = df.columns.tolist()
+        index_name = set(new_columns) - set(columns)
+        df = df.reset_index(index_name if index_name else 'index')
+        assert df.known_divisions
+
+    return df
+
+
 def hstack_array(arrs):
     if len(arrs) > 1:
         arrs = [make_chunk_size_known(a) for a in arrs]
@@ -83,15 +99,24 @@ def vstack_array(arrs):
     return da.vstack(arrs)
 
 
-def concat_df(dfs, axis=0, repartition=True, **kwargs):
+def concat_df(dfs, axis=0, repartition=False, **kwargs):
     if exist_dask_dataframe(*dfs):
-        dfs = dd.concat(dfs, axis=axis, **kwargs)
+        if axis == 1:
+            dfs = [make_divisions_known(df) for df in dfs]
+        df = dd.concat(dfs, axis=axis, **kwargs)
         if repartition:
-            dfs = dfs.repartition(npartitions=dfs[0].nartitions)
+            df = df.repartition(npartitions=dfs[0].npartitions)
     else:
-        dfs = pd.concat(dfs, axis=axis, **kwargs)
+        df = pd.concat(dfs, axis=axis, **kwargs)
 
-    return dfs
+    return df
+
+
+def train_test_split(*data, shuffle=True, random_state=9527, **kwargs):
+    if exist_dask_dataframe(*data):
+        return dm_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
+    else:
+        return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
 
 
 class MultiLabelEncoder(BaseEstimator, TransformerMixin):
@@ -396,7 +421,7 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
             for col in columns:
                 r = vf(pdf[col].values, col)
                 if r.dtype != dtype:
-                    print(r.dtype, 'astype', dtype)
+                    # print(r.dtype, 'astype', dtype)
                     r = r.astype(dtype)
                 pdf[col] = r
             return pdf
