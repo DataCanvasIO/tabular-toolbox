@@ -14,7 +14,6 @@ from hypergbm.search_space import search_space_feature_gen
 
 
 class Test_Evaluator():
-
     def test_all(self):
         X = dsutils.load_glass_uci()
         hypergbm_estimator = HyperGBMEstimator(task='multiclass', scorer='roc_auc_ovo')
