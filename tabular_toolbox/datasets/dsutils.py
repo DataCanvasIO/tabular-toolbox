@@ -26,3 +26,8 @@ def load_blood():
     import pandas as pd
     data = pd.read_csv(f'{basedir}/blood.csv')
     return data
+
+def load_telescope():
+    import pandas as pd
+    data = pd.read_csv(f'{basedir}/telescope.csv')
+    return data

@@ -20,7 +20,7 @@ class HyperGBMEstimator(BaseEstimator):
                  drop_feature_with_collinearity=False,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3,
                  train_test_split_strategy=None,
-                 cv=True, num_folds=3, class_balancing='sample_weight',
+                 cv=True, num_folds=3, class_balancing=None,
                  retrain_on_wholedata=False,
                  two_stage_importance_selection=True,
                  pseudo_labeling=False,
@@ -41,8 +41,10 @@ class HyperGBMEstimator(BaseEstimator):
         self.earlystop_rounds = earlystop_rounds
         self.time_limit = time_limit
         self.expected_reward = expected_reward
+        self.cv = cv
+        self.num_folds = num_folds
         self.search_space_fn = search_space_fn if search_space_fn is not None else lambda: search_space_general(
-            early_stopping_rounds=20, verbose=0, cv=cv, num_folds=num_folds, class_balancing=class_balancing)
+            early_stopping_rounds=20, verbose=0, class_balancing=class_balancing)
         self.ensemble_size = ensemble_size
         self.experiment = None
         self.use_meta_learner = use_meta_learner
@@ -73,6 +75,7 @@ class HyperGBMEstimator(BaseEstimator):
         log_callback = ConsoleCallback()
         self.experiment = CompeteExperiment(hk, X, y, X_test=X_test, eval_size=self.eval_size,
                                             train_test_split_strategy=self.train_test_split_strategy,
+                                            cv=self.cv, num_folds=self.num_folds,
                                             callbacks=[],
                                             scorer=get_scorer(self.scorer),
                                             drop_feature_with_collinearity=self.drop_feature_with_collinearity,
