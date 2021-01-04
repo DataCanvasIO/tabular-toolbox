@@ -5,6 +5,7 @@
 from collections import defaultdict
 from functools import partial
 
+import dask
 import dask.array as da
 import dask.dataframe as dd
 import numpy as np
@@ -17,6 +18,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from .utils import logging
 
 logger = logging.get_logger(__name__)
+
+compute = dask.compute
 
 
 def is_dask_dataframe(X):
@@ -191,6 +194,51 @@ def permutation_importance(estimator, X, y, *args, scoring=None, n_repeats=5,
     return sk_utils.Bunch(importances_mean=np.mean(importances, axis=1),
                           importances_std=np.std(importances, axis=1),
                           importances=importances)
+
+
+@sk_utils._deprecate_positional_args
+def compute_class_weight(class_weight, *, classes, y):
+    # f"""{sk_utils.class_weight.compute_class_weight.__doc__}"""
+    if not is_dask_series(y):
+        return sk_utils.class_weight.compute_class_weight(class_weight, classes, y)
+
+    if set(y) - set(classes):
+        raise ValueError("classes should include all valid labels that can be in y")
+
+    if class_weight == 'balanced':
+        # Find the weight of each class as present in y.
+        le = dm_pre.LabelEncoder()
+        y_ind = le.fit_transform(y)
+        # if not all(da.in1d(classes, le.classes_)):
+        #     raise ValueError("classes should have valid labels that are in y")
+        # recip_freq = len(y) / (len(le.classes_) *
+        #                        np.bincount(y_ind).astype(np.float64))
+        # weight = recip_freq[le.transform(classes)]
+        y_shape, y_ind_bincount, le_classes_ = compute(y.shape, da.bincount(y_ind), le.classes_)
+        recip_freq = y_shape[0] / (len(le_classes_) * y_ind_bincount.astype(np.float64))
+        weight = recip_freq[np.searchsorted(le_classes_, classes)]
+    else:
+        raise ValueError("Only class_weight == 'balanced' is supported.")
+
+    return weight
+
+
+def get_sample_weight(y):
+    def get_chunk_sample_weight(x, classes, classes_weights):
+        t = np.ones(x.shape[0])
+        for i, c in enumerate(classes):
+            t[x == c] *= classes_weights[i]
+        return t
+
+    unique = np.unique(y)
+    cw = list(compute_class_weight('balanced', unique, y))
+
+    if is_dask_object(y):
+        sample_weight = y.values.map_blocks(get_chunk_sample_weight, unique, cw, dtype=np.float64)
+    else:
+        sample_weight = get_chunk_sample_weight(y, unique, cw)
+
+    return sample_weight
 
 
 class MultiLabelEncoder(BaseEstimator, TransformerMixin):
