@@ -3,16 +3,15 @@
 
 """
 from collections import defaultdict
+from functools import partial
 
 import dask.array as da
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-from dask_ml import decomposition as dm_dec
-from dask_ml import model_selection as dm_sel
-from dask_ml import preprocessing as dm_pre
-from sklearn import model_selection as sk_sel
-from sklearn import preprocessing as sk_pre
+from dask_ml import model_selection as dm_sel, preprocessing as dm_pre, decomposition as dm_dec
+from sklearn import inspection as sk_inspect, metrics as sk_metrics
+from sklearn import model_selection as sk_sel, preprocessing as sk_pre, utils as sk_utils
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from .utils import logging
@@ -46,7 +45,7 @@ def exist_dask_dataframe(*args):
     return False
 
 
-def exist_dask_arrar(*args):
+def exist_dask_array(*args):
     for a in args:
         if isinstance(a, da.Array):
             return True
@@ -81,7 +80,7 @@ def make_divisions_known(df):
         df = df.reset_index()
         new_columns = df.columns.tolist()
         index_name = set(new_columns) - set(columns)
-        df = df.set_index(index_name if index_name else 'index')
+        df = df.set_index(list(index_name)[0] if index_name else 'index')
         assert df.known_divisions
 
     return df
@@ -117,6 +116,65 @@ def train_test_split(*data, shuffle=True, random_state=9527, **kwargs):
         return dm_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
     else:
         return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
+
+
+def permutation_importance(estimator, X, y, *args, scoring=None, n_repeats=5,
+                           n_jobs=None, random_state=None):
+    if not is_dask_dataframe(X):
+        return sk_inspect.permutation_importance(estimator, X, y, *args,
+                                                 scoring=scoring,
+                                                 n_repeats=n_repeats,
+                                                 n_jobs=n_jobs,
+                                                 random_state=random_state)
+    random_state = sk_utils.check_random_state(random_state)
+
+    def wrap_estimator(est):
+        def call_and_compute(fn, *args, **kwargs):
+            r = fn(*args, **kwargs)
+            if is_dask_object(r):
+                r = r.compute()
+            return r
+
+        if hasattr(est, 'predict_proba'):
+            orig_predict_proba = est.predict_proba
+            setattr(est, '_orig_predict_proba', orig_predict_proba)
+            setattr(est, 'predict_proba', partial(call_and_compute, orig_predict_proba))
+
+        if hasattr(est, 'predict'):
+            orig_predict = est.predict
+            setattr(est, '_orig_predict', orig_predict)
+            setattr(est, 'predict', partial(call_and_compute, orig_predict))
+
+        return est
+
+    def shuffle_partition(df, col_idx):
+        shuffling_idx = np.arange(df.shape[0])
+        random_state.shuffle(shuffling_idx)
+        col = df.iloc[shuffling_idx, col_idx]
+        col.index = df.index
+        df.iloc[:, col_idx] = col
+        return df
+
+    if is_dask_object(y):
+        y = y.compute()
+
+    scorer = sk_metrics.check_scoring(wrap_estimator(estimator), scoring)
+    baseline_score = scorer(estimator, X, y)
+    scores = []
+
+    for c in range(X.shape[1]):
+        col_scores = []
+        for i in range(n_repeats):
+            X_permuted = X.copy().map_partitions(shuffle_partition, c)
+            col_scores.append(scorer(estimator, X_permuted, y))
+        if logger.is_debug_enabled():
+            logger.debug(f'permuted scores [{X.columns[c]}]: {col_scores}')
+        scores.append(col_scores)
+
+    importances = baseline_score - np.array(scores)
+    return sk_utils.Bunch(importances_mean=np.mean(importances, axis=1),
+                          importances_std=np.std(importances, axis=1),
+                          importances=importances)
 
 
 class MultiLabelEncoder(BaseEstimator, TransformerMixin):
