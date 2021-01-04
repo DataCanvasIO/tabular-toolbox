@@ -23,6 +23,14 @@ def is_dask_dataframe(X):
     return isinstance(X, dd.DataFrame)
 
 
+def is_dask_series(X):
+    return isinstance(X, dd.Series)
+
+
+def is_dask_dataframe_or_series(X):
+    return isinstance(X, (dd.DataFrame, dd.Series))
+
+
 def is_dask_array(X):
     return isinstance(X, da.Array)
 
@@ -72,18 +80,24 @@ def make_chunk_size_known(a):
     return a
 
 
-def make_divisions_known(df):
-    assert is_dask_dataframe(df)
+def make_divisions_known(X):
+    assert is_dask_object(X)
 
-    if not df.known_divisions:
-        columns = df.columns.tolist()
-        df = df.reset_index()
-        new_columns = df.columns.tolist()
-        index_name = set(new_columns) - set(columns)
-        df = df.set_index(list(index_name)[0] if index_name else 'index')
-        assert df.known_divisions
+    if is_dask_dataframe(X):
+        if not X.known_divisions:
+            columns = X.columns.tolist()
+            X = X.reset_index()
+            new_columns = X.columns.tolist()
+            index_name = set(new_columns) - set(columns)
+            X = X.set_index(list(index_name)[0] if index_name else 'index')
+            assert X.known_divisions
+    elif is_dask_series(X):
+        if not X.known_divisions:
+            X = make_divisions_known(X.to_frame())[X.name]
+    else:  # dask array
+        X = make_chunk_size_known(X)
 
-    return df
+    return X
 
 
 def hstack_array(arrs):
@@ -113,6 +127,8 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
 
 def train_test_split(*data, shuffle=True, random_state=9527, **kwargs):
     if exist_dask_dataframe(*data):
+        if len(data) > 1:
+            data = [make_divisions_known(to_dask_type(x)) for x in data]
         return dm_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
     else:
         return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
