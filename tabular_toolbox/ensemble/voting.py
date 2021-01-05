@@ -105,6 +105,11 @@ class GreedyEnsemble(BaseEnsemble):
         for i in range(len(self.estimators)):
             if hits.get(i) is not None:
                 self.weights_[i] = hits[i] / len(best_stack)
+
+        zero_weight_index = np.argwhere(self.weights_ == 0.).ravel()
+        for index in zero_weight_index:
+            self.estimators[index] = None
+
         self.scores_ = scores
         self.hits_ = hits
         self.best_stack_ = best_stack

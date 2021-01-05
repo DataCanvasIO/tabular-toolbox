@@ -10,14 +10,15 @@ from sklearn.model_selection import StratifiedKFold
 class BaseEnsemble():
     def __init__(self, task, estimators, need_fit=False, n_folds=5, method='soft', random_state=9527):
         self.task = task
-        self.estimators = estimators
+        self.estimators = list(estimators)
         self.need_fit = need_fit
         self.method = method
         self.n_folds = n_folds
         self.random_state = random_state
         self.classes_ = None
+        self.preds_shape_ = None
         for est in estimators:
-            if self.classes_ is None and hasattr(est, 'classes_'):
+            if est is not None and self.classes_ is None and hasattr(est, 'classes_'):
                 self.classes_ = est.classes_
                 break
 
@@ -79,16 +80,17 @@ class BaseEnsemble():
                         est_predictions = np.zeros((len(y), len(self.estimators), pred.shape[1]), dtype=np.float64)
                     est_predictions[:, n] = pred
 
+        self.preds_shape_ = est_predictions.shape
         self.fit_predictions(est_predictions, y)
 
     def X2predictions(self, X):
-        est_predictions = None
         if self.task == 'regression' or self.method == 'hard':
             est_predictions = np.zeros((len(X), len(self.estimators)), dtype=np.float64)
+        else:
+            est_predictions = np.zeros((len(X), len(self.estimators), self.preds_shape_[-1]), dtype=np.float64)
         for n, estimator in enumerate(self.estimators):
-            pred = self.__predict(estimator, X)
-            if est_predictions is None:
-                est_predictions = np.zeros((len(X), len(self.estimators), pred.shape[1]), dtype=np.float64)
+            if estimator is not None:
+                pred = self.__predict(estimator, X)
             est_predictions[:, n] = pred
         return est_predictions
 
