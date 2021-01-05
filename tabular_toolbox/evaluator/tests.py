@@ -58,6 +58,34 @@ class Test_Evaluator():
 
         assert result
 
+    def test_hypergbm_cv_binary(self):
+        X = dsutils.load_telescope()  # .load_bank().head(1000)
+        task = 'binary'
+        hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', cv=True, num_folds=3)
+        hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', mode='two-stage', max_trails=300,
+                                               earlystop_rounds=10,
+                                               use_cache=False,
+                                               drop_feature_with_collinearity=False,
+                                               ensemble_size=20, use_meta_learner=False, eval_size=0.1,
+                                               retrain_on_wholedata=False,
+                                               # class_balancing='sample_weight',
+                                               cv=True, num_folds=3,
+                                               two_stage_importance_selection=False,
+                                               pseudo_labeling=False, pseudo_labeling_proba_threshold=0.6,
+                                               pseudo_labeling_resplit=False,
+                                               )
+        evaluator = Evaluator()
+        result = evaluator.evaluate(X,
+                                    target='Class',
+                                    task=task,
+                                    estimators=[
+                                        hypergbm_estimator
+                                    ],
+                                    scorers=['roc_auc_ovo'],
+                                    test_size=0.3,
+                                    random_state=9527)
+        assert result
+
     def test_all_binary(self):
         X = dsutils.load_blood()  # .load_bank().head(1000)
         task = 'binary'
