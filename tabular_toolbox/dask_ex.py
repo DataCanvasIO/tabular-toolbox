@@ -209,12 +209,14 @@ def compute_class_weight(class_weight, *, classes, y):
         # Find the weight of each class as present in y.
         le = dm_pre.LabelEncoder()
         y_ind = le.fit_transform(y)
-        # if not all(da.in1d(classes, le.classes_)):
+        # if not all(np.in1d(classes, le.classes_)):
         #     raise ValueError("classes should have valid labels that are in y")
         # recip_freq = len(y) / (len(le.classes_) *
         #                        np.bincount(y_ind).astype(np.float64))
         # weight = recip_freq[le.transform(classes)]
         y_shape, y_ind_bincount, le_classes_ = compute(y.shape, da.bincount(y_ind), le.classes_)
+        if not all(np.in1d(classes, le_classes_)):
+            raise ValueError("classes should have valid labels that are in y")
         recip_freq = y_shape[0] / (len(le_classes_) * y_ind_bincount.astype(np.float64))
         weight = recip_freq[np.searchsorted(le_classes_, classes)]
     else:
@@ -223,20 +225,25 @@ def compute_class_weight(class_weight, *, classes, y):
     return weight
 
 
-def get_sample_weight(y):
-    def get_chunk_sample_weight(x, classes, classes_weights):
-        t = np.ones(x.shape[0])
-        for i, c in enumerate(classes):
-            t[x == c] *= classes_weights[i]
-        return t
+def _compute_chunk_sample_weight(y, classes, classes_weights):
+    t = np.ones(y.shape[0])
+    for i, c in enumerate(classes):
+        t[y == c] *= classes_weights[i]
+    return t
+
+
+def compute_sample_weight(y):
+    assert len(y.shape) == 1 or (len(y.shape) == 2 and y.shape[1] == 1)
 
     unique = np.unique(y)
     cw = list(compute_class_weight('balanced', unique, y))
 
     if is_dask_object(y):
-        sample_weight = y.values.map_blocks(get_chunk_sample_weight, unique, cw, dtype=np.float64)
+        if is_dask_dataframe_or_series(y):
+            y = y.values
+        sample_weight = y.map_blocks(_compute_chunk_sample_weight, unique, cw, dtype=np.float64)
     else:
-        sample_weight = get_chunk_sample_weight(y, unique, cw)
+        sample_weight = _compute_chunk_sample_weight(y, unique, cw)
 
     return sample_weight
 
