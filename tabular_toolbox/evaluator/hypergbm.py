@@ -69,7 +69,7 @@ class HyperGBMEstimator(BaseEstimator):
         es = EarlyStoppingCallback(self.earlystop_rounds, 'max', time_limit=self.time_limit,
                                    expected_reward=self.expected_reward)
 
-        hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', clear_cache=False,
+        hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', clear_cache=True,
                       callbacks=[es, SummaryCallback()])
 
         log_callback = ConsoleCallback()
