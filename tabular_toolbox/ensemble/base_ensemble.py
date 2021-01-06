@@ -91,7 +91,7 @@ class BaseEnsemble():
         for n, estimator in enumerate(self.estimators):
             if estimator is not None:
                 pred = self.__predict(estimator, X)
-            est_predictions[:, n] = pred
+                est_predictions[:, n] = pred
         return est_predictions
 
     def predict(self, X):
