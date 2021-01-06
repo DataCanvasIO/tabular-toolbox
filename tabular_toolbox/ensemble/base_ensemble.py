@@ -50,6 +50,7 @@ class BaseEnsemble():
     def fit(self, X, y, est_predictions=None):
         assert y is not None
         if est_predictions is not None:
+            # print(f'est_predictions.shape:{est_predictions.shape}, estimators:{len(self.estimators)}')
             if self.task == 'regression' or self.method == 'hard':
                 assert est_predictions.shape == (len(y), len(self.estimators))
             else:
