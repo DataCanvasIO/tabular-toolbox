@@ -44,7 +44,7 @@ class HyperGBMEstimator(BaseEstimator):
         self.cv = cv
         self.num_folds = num_folds
         self.search_space_fn = search_space_fn if search_space_fn is not None else lambda: search_space_general(
-            early_stopping_rounds=20, verbose=0, class_balancing=class_balancing)
+            early_stopping_rounds=10, verbose=0, class_balancing=class_balancing)
         self.ensemble_size = ensemble_size
         self.experiment = None
         self.use_meta_learner = use_meta_learner
@@ -69,7 +69,7 @@ class HyperGBMEstimator(BaseEstimator):
         es = EarlyStoppingCallback(self.earlystop_rounds, 'max', time_limit=self.time_limit,
                                    expected_reward=self.expected_reward)
 
-        hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', clear_cache=False,
+        hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', clear_cache=True,
                       callbacks=[es, SummaryCallback()])
 
         log_callback = ConsoleCallback()

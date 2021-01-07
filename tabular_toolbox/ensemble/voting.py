@@ -101,10 +101,18 @@ class GreedyEnsemble(BaseEnsemble):
             else:
                 sum_predictions += predictions[:, best, :]
 
+        best_step = int(np.argmax(scores))
+        print(f'best_step:{best_step}')
+
         self.weights_ = np.zeros((len(self.estimators)), dtype=np.float64)
-        for i in range(len(self.estimators)):
+        for i in range(best_step + 1):  # (len(self.estimators)):
             if hits.get(i) is not None:
                 self.weights_[i] = hits[i] / len(best_stack)
+
+        zero_weight_index = np.argwhere(self.weights_ == 0.).ravel()
+        for index in zero_weight_index:
+            self.estimators[index] = None
+
         self.scores_ = scores
         self.hits_ = hits
         self.best_stack_ = best_stack
