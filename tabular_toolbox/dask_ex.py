@@ -128,7 +128,7 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
     return df
 
 
-def train_test_split(*data, shuffle=True, random_state=9527, **kwargs):
+def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
     if exist_dask_dataframe(*data):
         if len(data) > 1:
             data = [make_divisions_known(to_dask_type(x)) for x in data]
