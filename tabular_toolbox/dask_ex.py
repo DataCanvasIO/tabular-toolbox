@@ -14,6 +14,7 @@ from dask_ml import model_selection as dm_sel, preprocessing as dm_pre, decompos
 from sklearn import inspection as sk_inspect, metrics as sk_metrics
 from sklearn import model_selection as sk_sel, preprocessing as sk_pre, utils as sk_utils
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.multiclass import type_of_target
 
 from .utils import logging
 
@@ -137,6 +138,29 @@ def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
         return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
 
 
+def wrap_for_local_scorer(estimator, target_type):
+    def call_and_compute(fn, fix_binary_proba, *args, **kwargs):
+        r = fn(*args, **kwargs)
+        if is_dask_object(r):
+            r = r.compute()
+            if fix_binary_proba and r.ndim == 1:
+                r = np.vstack([1 - r, r]).T
+        return r
+
+    if hasattr(estimator, 'predict_proba'):
+        orig_predict_proba = estimator.predict_proba
+        fix_binary_proba = target_type == 'binary'
+        setattr(estimator, '_orig_predict_proba', orig_predict_proba)
+        setattr(estimator, 'predict_proba', partial(call_and_compute, orig_predict_proba, fix_binary_proba))
+
+    if hasattr(estimator, 'predict'):
+        orig_predict = estimator.predict
+        setattr(estimator, '_orig_predict', orig_predict)
+        setattr(estimator, 'predict', partial(call_and_compute, orig_predict, False))
+
+    return estimator
+
+
 def permutation_importance(estimator, X, y, *args, scoring=None, n_repeats=5,
                            n_jobs=None, random_state=None):
     if not is_dask_dataframe(X):
@@ -146,25 +170,6 @@ def permutation_importance(estimator, X, y, *args, scoring=None, n_repeats=5,
                                                  n_jobs=n_jobs,
                                                  random_state=random_state)
     random_state = sk_utils.check_random_state(random_state)
-
-    def wrap_estimator(est):
-        def call_and_compute(fn, *args, **kwargs):
-            r = fn(*args, **kwargs)
-            if is_dask_object(r):
-                r = r.compute()
-            return r
-
-        if hasattr(est, 'predict_proba'):
-            orig_predict_proba = est.predict_proba
-            setattr(est, '_orig_predict_proba', orig_predict_proba)
-            setattr(est, 'predict_proba', partial(call_and_compute, orig_predict_proba))
-
-        if hasattr(est, 'predict'):
-            orig_predict = est.predict
-            setattr(est, '_orig_predict', orig_predict)
-            setattr(est, 'predict', partial(call_and_compute, orig_predict))
-
-        return est
 
     def shuffle_partition(df, col_idx):
         shuffling_idx = np.arange(df.shape[0])
@@ -177,7 +182,7 @@ def permutation_importance(estimator, X, y, *args, scoring=None, n_repeats=5,
     if is_dask_object(y):
         y = y.compute()
 
-    scorer = sk_metrics.check_scoring(wrap_estimator(estimator), scoring)
+    scorer = sk_metrics.check_scoring(wrap_for_local_scorer(estimator, type_of_target(y)), scoring)
     baseline_score = scorer(estimator, X, y)
     scores = []
 
