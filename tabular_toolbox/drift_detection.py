@@ -63,11 +63,7 @@ def _wrap_predict_proba(estimator):
 
     def __predict_proba(*args, **kwargs):
         proba = orig_predict_proba(*args, **kwargs)
-        if proba.ndim == 1:
-            proba = dex.make_chunk_size_known(proba)
-            proba = proba.reshape((proba.size, 1))
-        if proba.shape[1] == 1:
-            proba = dex.hstack_array([proba, 1 - proba])
+        proba = dex.fix_binary_predict_proba_result(proba)
         return proba
 
     setattr(estimator, '_orig_predict_proba', orig_predict_proba)

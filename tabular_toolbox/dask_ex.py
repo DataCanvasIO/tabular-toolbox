@@ -138,25 +138,39 @@ def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
         return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
 
 
+def fix_binary_predict_proba_result(proba):
+    if is_dask_object(proba):
+        if proba.ndim == 1:
+            proba = make_chunk_size_known(proba)
+            proba = proba.reshape((proba.size, 1))
+        if proba.shape[1] == 1:
+            proba = hstack_array([1 - proba, proba])
+    else:
+        if proba.ndim == 1:
+            proba = np.vstack([1 - proba, proba]).T
+
+    return proba
+
+
 def wrap_for_local_scorer(estimator, target_type):
-    def call_and_compute(fn, fix_binary_proba, *args, **kwargs):
-        r = fn(*args, **kwargs)
+    def call_and_compute(fn_call, fn_fix, *args, **kwargs):
+        r = fn_call(*args, **kwargs)
         if is_dask_object(r):
             r = r.compute()
-            if fix_binary_proba and r.ndim == 1:
-                r = np.vstack([1 - r, r]).T
+            if callable(fn_fix):
+                r = fn_fix(r)
         return r
 
     if hasattr(estimator, 'predict_proba'):
         orig_predict_proba = estimator.predict_proba
-        fix_binary_proba = target_type == 'binary'
+        fix = fix_binary_predict_proba_result if target_type == 'binary' else None
         setattr(estimator, '_orig_predict_proba', orig_predict_proba)
-        setattr(estimator, 'predict_proba', partial(call_and_compute, orig_predict_proba, fix_binary_proba))
+        setattr(estimator, 'predict_proba', partial(call_and_compute, orig_predict_proba, fix))
 
     if hasattr(estimator, 'predict'):
         orig_predict = estimator.predict
         setattr(estimator, '_orig_predict', orig_predict)
-        setattr(estimator, 'predict', partial(call_and_compute, orig_predict, False))
+        setattr(estimator, 'predict', partial(call_and_compute, orig_predict, None))
 
     return estimator
 
