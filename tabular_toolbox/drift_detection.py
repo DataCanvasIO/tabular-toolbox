@@ -315,6 +315,8 @@ class DriftDetector():
         self.auc_ = np.mean(auc_all)
         self.feature_importances_ = np.mean(importances, axis=0)
         self.fitted = True
+        X_test.pop(target_col)
+        X_train.pop(target_col)
         return self
 
     def predict_proba(self, X):
