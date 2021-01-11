@@ -11,27 +11,41 @@ from .hyperdt import HyperDTEstimator
 from . import Evaluator
 from ..datasets import dsutils
 from hypergbm.search_space import search_space_feature_gen
+import pandas as pd
 
 
 class Test_Evaluator():
-    def test_all(self):
-        X = dsutils.load_glass_uci()
-        hypergbm_estimator = HyperGBMEstimator(task='multiclass', scorer='roc_auc_ovo')
-        autosklearn_estimator = AutoSklearnEstimator(task='multiclass', time_left_for_this_task=30,
+    def test_hypergbm_multiclass(self):
+        def get_data(ds_name, task):
+            dir = '/Users/jack/workspace/aps/notebook/hypergbm'
+            train = pd.read_csv(f'{dir}/datasets/cooka_data/{task}/{ds_name}/train.csv')
+            test = pd.read_csv(f'{dir}/datasets/cooka_data/{task}/{ds_name}/test.csv')
+            return train, test
+
+        task = 'multiclass'
+        target = 'Class'
+        X = get_data('yeast', task)
+        # X = dsutils.load_glass_uci()
+        hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo',
+                                               eval_size=0.1,
+                                               cv=False,
+                                               max_trails=3)
+        autosklearn_estimator = AutoSklearnEstimator(task=task, time_left_for_this_task=30,
                                                      per_run_time_limit=10)
-        h2o_estimator = H2OEstimator(task='multiclass')
-        hyperdt_estimator = HyperDTEstimator(task='multiclass', reward_metric='AUC', max_trails=3, epochs=1)
+        h2o_estimator = H2OEstimator(task=task)
+        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trails=3, epochs=1)
         evaluator = Evaluator()
         result = evaluator.evaluate(X,
-                                    target=10,
+                                    target=target,
                                     task='multiclas',
                                     estimators=[
                                         # autosklearn_estimator,
-                                        # hypergbm_estimator,
+                                        hypergbm_estimator,
                                         # h2o_estimator,
-                                        hyperdt_estimator,
+                                        # hyperdt_estimator,
                                     ],
-                                    scorers=['accuracy', 'roc_auc_ovo'],
+
+                                    scorers=['roc_auc_ovo'],
                                     test_size=0.3,
                                     random_state=9527)
         assert result

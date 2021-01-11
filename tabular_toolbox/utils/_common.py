@@ -17,6 +17,8 @@ def infer_task_type(y):
         return task, labels
 
     uniques = set(y)
+    if uniques.__contains__(np.nan):
+        uniques.remove(np.nan)
     n_unique = len(uniques)
     labels = []
 

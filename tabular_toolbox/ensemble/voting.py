@@ -60,7 +60,6 @@ class GreedyEnsemble(BaseEnsemble):
     def fit_predictions(self, predictions, y_true):
         scores = []
         best_stack = []
-        hits = defaultdict(int)
         if len(predictions.shape) == 1:
             self.weights_ = [1]
             return
@@ -95,19 +94,25 @@ class GreedyEnsemble(BaseEnsemble):
             best = np.argmax(stack_scores)
             scores.append(stack_scores[best])
             best_stack.append(best)
-            hits[best] += 1
             if len(predictions.shape) == 2:
                 sum_predictions += predictions[:, best]
             else:
                 sum_predictions += predictions[:, best, :]
 
-        best_step = int(np.argmax(scores))
-        print(f'best_step:{best_step}')
+        #best_step = int(np.argmax(scores))
+        #print(f'best_step:{best_step}')
+        #val_steps = best_step + 1
+
+        # sum up estimator's hit count
+        val_steps = len(best_stack)
+        hits = defaultdict(int)
+        for i in range(val_steps):
+            hits[best_stack[i]] += 1
 
         self.weights_ = np.zeros((len(self.estimators)), dtype=np.float64)
-        for i in range(best_step + 1):  # (len(self.estimators)):
+        for i in range(len(self.estimators)):
             if hits.get(i) is not None:
-                self.weights_[i] = hits[i] / len(best_stack)
+                self.weights_[i] = hits[i] / val_steps
 
         zero_weight_index = np.argwhere(self.weights_ == 0.).ravel()
         for index in zero_weight_index:

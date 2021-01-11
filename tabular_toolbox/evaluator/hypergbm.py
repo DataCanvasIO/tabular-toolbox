@@ -15,7 +15,7 @@ from hypernets.core import EarlyStoppingCallback, SummaryCallback
 
 
 class HyperGBMEstimator(BaseEstimator):
-    def __init__(self, task, scorer, mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
+    def __init__(self, task, scorer, reward_metric='auc', optimize_direction='max', mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
                  time_limit=3600, expected_reward=None,
                  drop_feature_with_collinearity=False,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3,
@@ -33,6 +33,8 @@ class HyperGBMEstimator(BaseEstimator):
         else:
             self.name = 'HyperGBM'
         self.scorer = scorer
+        self.reward_metric = reward_metric
+        self.optimize_direction = optimize_direction
         self.mode = mode
         self.kwargs = kwargs
         self.estimator = None
@@ -62,14 +64,14 @@ class HyperGBMEstimator(BaseEstimator):
         #                         candidates_size=10,
         #                         optimize_direction=OptimizeDirection.Maximize)
         searcher = EvolutionSearcher(self.search_space_fn,
-                                     optimize_direction=OptimizeDirection.Maximize, population_size=30, sample_size=10,
+                                     optimize_direction=self.optimize_direction, population_size=30, sample_size=10,
                                      regularized=True, candidates_size=10, use_meta_learner=self.use_meta_learner)
         # searcher = RandomSearcher(lambda: search_space_general(early_stopping_rounds=20, verbose=0),
         #                     optimize_direction=OptimizeDirection.Maximize)
-        es = EarlyStoppingCallback(self.earlystop_rounds, 'max', time_limit=self.time_limit,
+        es = EarlyStoppingCallback(self.earlystop_rounds, self.optimize_direction, time_limit=self.time_limit,
                                    expected_reward=self.expected_reward)
 
-        hk = HyperGBM(searcher, reward_metric='auc', cache_dir=f'hypergbm_cache', clear_cache=True,
+        hk = HyperGBM(searcher, reward_metric=self.reward_metric, cache_dir=f'hypergbm_cache', clear_cache=True,
                       callbacks=[es, SummaryCallback()])
 
         log_callback = ConsoleCallback()
