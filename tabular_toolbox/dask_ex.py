@@ -218,10 +218,10 @@ def permutation_importance(estimator, X, y, *args, scoring=None, n_repeats=5,
 @sk_utils._deprecate_positional_args
 def compute_class_weight(class_weight, *, classes, y):
     # f"""{sk_utils.class_weight.compute_class_weight.__doc__}"""
-    if not is_dask_series(y):
+    if not is_dask_object(y):
         return sk_utils.class_weight.compute_class_weight(class_weight, classes, y)
 
-    if set(y) - set(classes):
+    if set(compute(da.unique(y))[0]) - set(classes):
         raise ValueError("classes should include all valid labels that can be in y")
 
     if class_weight == 'balanced':
@@ -254,7 +254,7 @@ def _compute_chunk_sample_weight(y, classes, classes_weights):
 def compute_sample_weight(y):
     assert len(y.shape) == 1 or (len(y.shape) == 2 and y.shape[1] == 1)
 
-    unique = np.unique(y)
+    unique = compute(da.unique(y))[0] if is_dask_object(y) else np.unique(y)
     cw = list(compute_class_weight('balanced', unique, y))
 
     if is_dask_object(y):
