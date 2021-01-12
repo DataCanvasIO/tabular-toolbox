@@ -29,11 +29,11 @@ class Test_Evaluator():
         hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo',
                                                eval_size=0.1,
                                                cv=False,
-                                               max_trails=3)
+                                               max_trials=3)
         autosklearn_estimator = AutoSklearnEstimator(task=task, time_left_for_this_task=30,
                                                      per_run_time_limit=10)
         h2o_estimator = H2OEstimator(task=task)
-        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trails=3, epochs=1)
+        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trials=3, epochs=1)
         evaluator = Evaluator()
         result = evaluator.evaluate(X,
                                     target=target,
@@ -76,7 +76,7 @@ class Test_Evaluator():
         X = dsutils.load_telescope()  # .load_bank().head(1000)
         task = 'binary'
         hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', cv=True, num_folds=3)
-        hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', mode='two-stage', max_trails=300,
+        hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', mode='two-stage', max_trials=300,
                                                earlystop_rounds=10,
                                                use_cache=False,
                                                drop_feature_with_collinearity=False,
@@ -104,14 +104,14 @@ class Test_Evaluator():
         X = dsutils.load_blood()  # .load_bank().head(1000)
         task = 'binary'
         hypergbm_estimator = HyperGBMEstimator(task=task, scorer='roc_auc_ovo')
-        hypergbm_estimator_fg = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', max_trails=3,
+        hypergbm_estimator_fg = HyperGBMEstimator(task=task, scorer='roc_auc_ovo', max_trials=3,
                                                   search_space_fn=lambda: search_space_feature_gen(
                                                       early_stopping_rounds=20, verbose=0, task=task))
 
         autosklearn_estimator = AutoSklearnEstimator(task=task, time_left_for_this_task=30,
                                                      per_run_time_limit=10)
         h2o_estimator = H2OEstimator(task=task)
-        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trails=3, epochs=1)
+        hyperdt_estimator = HyperDTEstimator(task=task, reward_metric='AUC', max_trials=3, epochs=1)
         evaluator = Evaluator()
         result = evaluator.evaluate(X,
                                     target='Class',

@@ -15,7 +15,7 @@ from hypernets.core import EarlyStoppingCallback, SummaryCallback
 
 
 class HyperGBMEstimator(BaseEstimator):
-    def __init__(self, task, scorer, reward_metric='auc', optimize_direction='max', mode='one-stage', max_trails=30, use_cache=True, earlystop_rounds=30,
+    def __init__(self, task, scorer, reward_metric='auc', optimize_direction='max', mode='one-stage', max_trials=30, use_cache=True, earlystop_rounds=30,
                  time_limit=3600, expected_reward=None,
                  drop_feature_with_collinearity=False,
                  search_space_fn=None, ensemble_size=10, use_meta_learner=False, eval_size=0.3,
@@ -38,7 +38,7 @@ class HyperGBMEstimator(BaseEstimator):
         self.mode = mode
         self.kwargs = kwargs
         self.estimator = None
-        self.max_trails = max_trails
+        self.max_trials = max_trials
         self.use_cache = use_cache
         self.earlystop_rounds = earlystop_rounds
         self.time_limit = time_limit
@@ -92,7 +92,7 @@ class HyperGBMEstimator(BaseEstimator):
                                             pseudo_labeling_resplit=self.pseudo_labeling_resplit,
                                             retrain_on_wholedata=self.retrain_on_wholedata,
                                             )
-        self.estimator = self.experiment.run(use_cache=self.use_cache, max_trails=self.max_trails)
+        self.estimator = self.experiment.run(use_cache=self.use_cache, max_trials=self.max_trials)
 
     def predict_proba(self, X):
         return self.estimator.predict_proba(X)

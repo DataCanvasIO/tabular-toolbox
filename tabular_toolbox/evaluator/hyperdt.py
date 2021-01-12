@@ -15,13 +15,13 @@ from . import BaseEstimator
 
 
 class HyperDTEstimator(BaseEstimator):
-    def __init__(self, task, reward_metric, max_trails=30, epochs=100, earlystop_rounds=30, time_limit=3600,
+    def __init__(self, task, reward_metric, max_trials=30, epochs=100, earlystop_rounds=30, time_limit=3600,
                  expected_reward=None, **kwargs):
         super(HyperDTEstimator, self).__init__(task)
         self.name = 'HyperDT'
         self.kwargs = kwargs
         self.estimator = None
-        self.max_trails = max_trails
+        self.max_trials = max_trials
         self.reward_metric = reward_metric
         self.epochs = epochs
         self.earlystop_rounds = earlystop_rounds
@@ -45,8 +45,8 @@ class HyperDTEstimator(BaseEstimator):
         X_train, X_eval, y_train, y_eval = train_test_split(X, y, test_size=0.3,
                                                             random_state=9527, stratify=stratify)
 
-        hdt.search(X_train, y_train, X_eval, y_eval, max_trails=self.max_trails, epochs=self.epochs)
-        best_trial = hdt.get_best_trail()
+        hdt.search(X_train, y_train, X_eval, y_eval, max_trials=self.max_trials, epochs=self.epochs)
+        best_trial = hdt.get_best_trial()
         self.estimator = hdt.load_estimator(best_trial.model_file)
 
     def predict_proba(self, X):
