@@ -105,15 +105,25 @@ def make_divisions_known(X):
 
 
 def hstack_array(arrs):
-    if len(arrs) > 1:
-        arrs = [make_chunk_size_known(a) for a in arrs]
-    return da.hstack(arrs)
+    return stack_array(arrs, axis=1)
 
 
 def vstack_array(arrs):
-    if len(arrs) > 1:
-        arrs = [make_chunk_size_known(a) for a in arrs]
-    return da.vstack(arrs)
+    return stack_array(arrs, axis=0)
+
+
+def stack_array(arrs, axis=0):
+    if exist_dask_array(*arrs):
+        assert axis in (0, 1)
+        if len(arrs) > 1:
+            arrs = [make_chunk_size_known(a) for a in arrs]
+
+        if axis == 0:
+            return da.vstack(arrs)
+        else:
+            return da.hstack(arrs)
+    else:
+        return np.concatenate(arrs, axis=axis)
 
 
 def concat_df(dfs, axis=0, repartition=False, **kwargs):
