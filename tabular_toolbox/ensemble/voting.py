@@ -82,9 +82,8 @@ class GreedyEnsemble(BaseEnsemble):
                 else:
                     pred = predictions[:, j, :]
                 mean_predictions = (sum_predictions + pred) / (len(best_stack) + 1)
-                if isinstance(self.scorer, _PredictScorer):
-                    if self.classes_ is not None:
-                        pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
+                if isinstance(self.scorer, _PredictScorer) and self.classes_ is not None and len(self.classes_) > 0:
+                    pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
                     mean_predictions = pred
                 elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
                     mean_predictions = mean_predictions[:, 1]
@@ -99,9 +98,9 @@ class GreedyEnsemble(BaseEnsemble):
             else:
                 sum_predictions += predictions[:, best, :]
 
-        #best_step = int(np.argmax(scores))
-        #print(f'best_step:{best_step}')
-        #val_steps = best_step + 1
+        # best_step = int(np.argmax(scores))
+        # print(f'best_step:{best_step}')
+        # val_steps = best_step + 1
 
         # sum up estimator's hit count
         val_steps = len(best_stack)
@@ -143,9 +142,13 @@ class GreedyEnsemble(BaseEnsemble):
         else:
             weights = self.weights_
         proba = np.sum(predictions * weights, axis=1)
+
         if self.task == 'regression':
             return proba
-        proba = np.clip(proba, 0, 1)
+        else:
+            # guaranteed to sum to 1.0 over classes
+            proba = proba * np.expand_dims(1 / (proba.sum(axis=1)), axis=1).repeat(proba.shape[1], 1)
+
         if len(proba.shape) == 1:
             proba = np.stack([1 - proba, proba], axis=1)
         return proba

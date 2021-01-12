@@ -31,3 +31,8 @@ def load_telescope():
     import pandas as pd
     data = pd.read_csv(f'{basedir}/telescope.csv')
     return data
+
+def load_Bike_Sharing():
+    import pandas as pd
+    data = pd.read_csv(f'{basedir}/Bike_Sharing.csv')
+    return data

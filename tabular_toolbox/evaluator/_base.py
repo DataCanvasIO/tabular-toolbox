@@ -65,8 +65,7 @@ class Evaluator():
                         metric = scoring
                     else:
                         metric = str(scoring)
-                    score = scorer(estimator, X_test, y_test)
-
+                    score = scorer(estimator, X_test, y_test) * scorer._sign
                     result.append((estimator.name, metric, score, elapsed, time.strftime("%Y-%m-%d %H:%M:%S")))
             except Exception as e:
                 errors.append((estimator.name, str(e)))
