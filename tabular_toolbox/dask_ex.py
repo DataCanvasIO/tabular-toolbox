@@ -264,12 +264,13 @@ def _compute_chunk_sample_weight(y, classes, classes_weights):
 def compute_sample_weight(y):
     assert len(y.shape) == 1 or (len(y.shape) == 2 and y.shape[1] == 1)
 
+    if is_dask_dataframe_or_series(y):
+        y = y.values
+
     unique = compute(da.unique(y))[0] if is_dask_object(y) else np.unique(y)
     cw = list(compute_class_weight('balanced', unique, y))
 
     if is_dask_object(y):
-        if is_dask_dataframe_or_series(y):
-            y = y.values
         sample_weight = y.map_blocks(_compute_chunk_sample_weight, unique, cw, dtype=np.float64)
     else:
         sample_weight = _compute_chunk_sample_weight(y, unique, cw)
