@@ -231,6 +231,7 @@ def compute_class_weight(class_weight, *, classes, y):
     if not is_dask_object(y):
         return sk_utils.class_weight.compute_class_weight(class_weight, classes, y)
 
+    y = make_chunk_size_known(y)
     if set(compute(da.unique(y))[0]) - set(classes):
         raise ValueError("classes should include all valid labels that can be in y")
 
