@@ -6,14 +6,12 @@
 from collections import defaultdict
 
 import dask.array as da
-import dask.dataframe as dd
 import numpy as np
-from dask_ml.model_selection import KFold
 from hypernets.utils import logging
 from sklearn.metrics import get_scorer
 from sklearn.metrics._scorer import _PredictScorer
-from tabular_toolbox import dask_ex as dex
 
+from tabular_toolbox import dask_ex as dex
 from .base_ensemble import BaseEnsemble
 
 logger = logging.get_logger(__name__)
@@ -34,44 +32,16 @@ class DaskGreedyEnsemble(BaseEnsemble):
         self.best_stack_ = None
         self.hits_ = None
 
-    # def __predict(self, estimator, X):
-    #     if self.task == 'regression':
-    #         pred = estimator.predict(X)
-    #     else:
-    #         if self.classes_ is None and hasattr(estimator, 'classes_'):
-    #             self.classes_ = estimator.classes_
-    #         pred = estimator.predict_proba(X)
-    #         if self.method == 'hard':
-    #             pred = self.proba2predict(pred)
-    #     return pred
-
-    def X2predictions(self, X):
-        preds = [self.__predict(est, X) for est in self.estimators]
-        return dex.hstack_array(preds)
-
-    def X2predictions_by_fit(self, X, y):
-        raise NotImplementedError('fixme')
-
-        preds = []
-        est_predictions = None
-
-        columns = X.columns
-        X_values, y_values = X.to_dask_array(lengths=True), y.to_dask_array(lengths=True)
-        iterators = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
-        for fold, (train, test) in enumerate(iterators.split(X_values, y_values)):
-            X_train, y_train = X_values[train], y_values[train]
-            X_test, y_test = X_values[test], y_values[test]
-            X_train = dd.from_dask_array(X_train, columns=columns)
-            x_test = dd.from_dask_array(X_test, columns=columns)
-
-            for n, estimator in enumerate(self.estimators):
-                estimator.fit(X_train, y_train)
-                pred = self.__predict(estimator, X_test)
-                if est_predictions is None:
-                    est_predictions = np.zeros((len(y), len(self.estimators), pred.shape[1]), dtype=np.float64)
-                est_predictions[test, n] = pred
-
-        return dex.hstack_array(preds)
+    def __predict(self, estimator, X):
+        if self.task == 'regression':
+            pred = estimator.predict(X)
+        else:
+            if self.classes_ is None and hasattr(estimator, 'classes_'):
+                self.classes_ = estimator.classes_
+            pred = estimator.predict_proba(X)
+            if self.method == 'hard':
+                pred = self.proba2predict(pred)
+        return pred
 
     def fit(self, X, y_true, predictions=None):
         assert any(t is not None for t in [X, predictions])
@@ -86,7 +56,7 @@ class DaskGreedyEnsemble(BaseEnsemble):
             elif X is not None:
                 pred = self.__predict(self.estimators[j], X)
             else:
-                raise ValueError(f'Not found predictions for esitimator {j}')
+                raise ValueError(f'Not found predictions for estimator {j}')
             return pred
 
         if len(self.estimators) == 1:
