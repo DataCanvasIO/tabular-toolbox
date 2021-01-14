@@ -113,24 +113,57 @@ def vstack_array(arrs):
 
 
 def stack_array(arrs, axis=0):
-    if exist_dask_array(*arrs):
-        assert axis in (0, 1)
+    assert axis in (0, 1)
+    if axis != min(axis, min([len(a.shape) for a in arrs]) - 1):
+        axis = min(axis, min([len(a.shape) for a in arrs]) - 1)
+    assert axis >= 0
+
+    if exist_dask_object(*arrs):
+        arrs = [a.values if is_dask_dataframe_or_series(a) else a for a in arrs]
         if len(arrs) > 1:
             arrs = [make_chunk_size_known(a) for a in arrs]
-
-        if axis == 0:
-            return da.vstack(arrs)
-        else:
-            return da.hstack(arrs)
+        return da.concatenate(arrs, axis=axis)
     else:
         return np.concatenate(arrs, axis=axis)
 
 
+def array_to_df(arrs, columns=None, meta=None):
+    meta_df = None
+    if isinstance(meta, (dd.DataFrame, pd.DataFrame)):
+        meta_df = meta
+        if columns is None:
+            columns = meta_df.columns
+        meta = dd.utils.make_meta(meta_df.dtypes.to_dict())
+    elif isinstance(meta, (dd.Series, pd.Series)):
+        meta_df = meta
+        if columns is None:
+            columns = meta_df.name
+        meta = None
+
+    df = dd.from_dask_array(arrs, columns=columns, meta=meta)
+
+    if isinstance(meta_df, (dd.DataFrame, pd.DataFrame)):
+        dtypes_src = meta_df.dtypes
+        dtypes_dst = df.dtypes
+        for col in meta_df.columns:
+            if dtypes_src[col] != dtypes_dst[col]:
+                df[col] = df[col].astype(dtypes_src[col])
+
+    return df
+
+
 def concat_df(dfs, axis=0, repartition=False, **kwargs):
-    if exist_dask_dataframe(*dfs):
-        if axis == 1:
+    if exist_dask_object(*dfs):
+        dfs = [dd.from_dask_array(v) if is_dask_array(v) else v for v in dfs]
+        if axis == 0:
+            values = [df.to_dask_array(lengths=True) for df in dfs]
+            df = array_to_df(vstack_array(values), meta=dfs[0])
+        else:
             dfs = [make_divisions_known(df) for df in dfs]
-        df = dd.concat(dfs, axis=axis, **kwargs)
+            df = dd.concat(dfs, axis=axis, **kwargs)
+
+        if is_dask_series(dfs[0]) and dfs[0].name is not None:
+            df.name = dfs[0].name
         if repartition:
             df = df.repartition(npartitions=dfs[0].npartitions)
     else:

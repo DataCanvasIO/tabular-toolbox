@@ -287,8 +287,8 @@ class DriftDetector():
             if dex.is_dask_dataframe(X_merge):
                 x_train_fold, y_train_fold = X_values[train_idx], y_values[train_idx]
                 x_val_fold, y_val_fold = X_values[valid_idx], y_values[valid_idx]
-                x_train_fold = dd.from_dask_array(x_train_fold, columns=X_merge.columns)
-                x_val_fold = dd.from_dask_array(x_val_fold, columns=X_merge.columns)
+                x_train_fold = dex.array_to_df(x_train_fold, meta=X_merge)
+                x_val_fold = dex.array_to_df(x_val_fold, meta=X_merge)
             else:
                 x_train_fold, y_train_fold = X_values.iloc[train_idx], y_values.iloc[train_idx]
                 x_val_fold, y_val_fold = X_values.iloc[valid_idx], y_values.iloc[valid_idx]
