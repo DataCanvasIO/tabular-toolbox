@@ -137,8 +137,7 @@ def vstack_array(arrs):
 
 def stack_array(arrs, axis=0):
     assert axis in (0, 1)
-    if axis != min(axis, min([len(a.shape) for a in arrs]) - 1):
-        axis = min(axis, min([len(a.shape) for a in arrs]) - 1)
+    axis = min(axis, min([len(a.shape) for a in arrs]) - 1)
     assert axis >= 0
 
     if exist_dask_object(*arrs):

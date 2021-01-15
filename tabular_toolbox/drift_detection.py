@@ -304,6 +304,8 @@ class DriftDetector():
                 kwargs['verbose'] = 0
             estimator.fit(x_train_fold, y_train_fold, **kwargs)
             proba = estimator.predict_proba(x_val_fold)[:, 1]
+            if dex.is_dask_dataframe(X_merge):
+                y_val_fold, proba = dex.compute(y_val_fold, proba, traverse=False)
             auc = roc_auc_score(y_val_fold, proba)
             logger.info(f'auc: {auc}')
 
