@@ -23,6 +23,29 @@ logger = logging.get_logger(__name__)
 compute = dask.compute
 
 
+def default_client():
+    try:
+        from dask.distributed import default_client as dask_default_client
+        client = dask_default_client()
+    except ValueError:
+        client = None
+    return client
+
+
+def dask_enabled():
+    return default_client() is not None
+
+
+def is_local_dask():
+    client = default_client()
+    return type(client.cluster).__name__.lower().find('local') >= 0 if client is not None else False
+
+
+def dask_worker_count():
+    client = default_client()
+    return len(client.ncores()) if client else 0
+
+
 def is_dask_dataframe(X):
     return isinstance(X, dd.DataFrame)
 
@@ -219,6 +242,25 @@ def wrap_for_local_scorer(estimator, target_type):
         orig_predict = estimator.predict
         setattr(estimator, '_orig_predict', orig_predict)
         setattr(estimator, 'predict', partial(call_and_compute, orig_predict, None))
+
+    return estimator
+
+
+def _compute_and_call(fn_call, *args, **kwargs):
+    args = compute(*args, traverse=False)
+    # kwargs = {k: compute(v) if is_dask_array(v) else v for k, v in kwargs.items()}
+    r = fn_call(*args, **kwargs)
+    return r
+
+
+def wrap_local_estimator(estimator):
+    for fn_name in ('fit', 'predict', 'predict_proba'):
+        fn_name_original = f'_wrapped_{fn_name}_by_wle'
+        if hasattr(estimator, fn_name) and not hasattr(estimator, fn_name_original):
+            fn = getattr(estimator, fn_name)
+            assert callable(fn)
+            setattr(estimator, fn_name_original, fn)
+            setattr(estimator, fn_name, partial(_compute_and_call, fn))
 
     return estimator
 
