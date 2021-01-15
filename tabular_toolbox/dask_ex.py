@@ -162,7 +162,7 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
             dfs = [make_divisions_known(df) for df in dfs]
             df = dd.concat(dfs, axis=axis, **kwargs)
 
-        if is_dask_series(dfs[0]) and dfs[0].name is not None:
+        if is_dask_series(dfs[0]) and df.name is None and dfs[0].name is not None:
             df.name = dfs[0].name
         if repartition:
             df = df.repartition(npartitions=dfs[0].npartitions)
@@ -176,6 +176,11 @@ def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
     if exist_dask_dataframe(*data):
         if len(data) > 1:
             data = [make_divisions_known(to_dask_type(x)) for x in data]
+            head = data[0]
+            for i in range(1, len(data)):
+                if data[i].divisions != head.divisions:
+                    data[i] = data[i].repartition(divisions=head.divisions)
+
         return dm_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
     else:
         return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
