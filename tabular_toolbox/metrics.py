@@ -7,25 +7,22 @@ import numpy as np
 from dask import dataframe as dd, array as da
 from sklearn import metrics as sk_metrics
 
-from .utils import logging
+from tabular_toolbox.utils import logging
+from tabular_toolbox import dask_ex as dex
 
 logger = logging.getLogger(__name__)
 
-_DASK_TYPES = (dd.DataFrame, da.Array, dd.Series)
 _DASK_METRICS = ('accuracy', 'logloss')
 
 
 def calc_score(y_true, y_preds, y_proba=None, metrics=('accuracy',), task='binary', pos_label=1):
-    if any(isinstance(y, _DASK_TYPES) for y in (y_true, y_proba, y_preds)):
-        if len(set(metrics).difference(set(_DASK_METRICS))) == 0:
+    data_list = (y_true, y_proba, y_preds)
+    if any(map(dex.is_dask_object, data_list)):
+        if all(map(dex.is_dask_object, data_list)) and len(set(metrics).difference(set(_DASK_METRICS))) == 0:
             fn = _calc_score_dask
         else:
-            if isinstance(y_true, _DASK_TYPES):
-                y_true = y_true.compute()
-            if isinstance(y_preds, _DASK_TYPES):
-                y_preds = y_preds.compute()
-            if isinstance(y_proba, _DASK_TYPES):
-                y_proba = y_proba.compute()
+            y_true, y_proba, y_preds = \
+                [y.compute() if dex.is_dask_object(y) else y for y in data_list]
             fn = _calc_score_sklean
     else:
         fn = _calc_score_sklean
@@ -101,11 +98,7 @@ def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task=
         if len(value.shape) == 2 and value.shape[-1] == 1:
             value = value.reshape(-1)
 
-        chunks = value.chunks
-        if any(np.nan in d for d in chunks):
-            # logger.debug(f'call {name} compute_chunk_sizes')
-            value = value.compute_chunk_sizes()
-
+        value = dex.make_chunk_size_known(value)
         return value
 
     score = {}
