@@ -2,17 +2,18 @@
 """
 
 """
+import re
 import time
 
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor, LGBMClassifier
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import log_loss, mean_squared_error
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, StandardScaler, OneHotEncoder
 from sklearn.utils import column_or_1d
 from sklearn.utils.validation import check_is_fitted
-from sklearn.impute import SimpleImputer
 
 from tabular_toolbox.column_selector import column_skewness_kurtosis, column_int, column_object_category_bool
 from tabular_toolbox.utils import logging, infer_task_type
@@ -169,6 +170,33 @@ class SafeOrdinalEncoder(OrdinalEncoder):
             result = np.stack(result, axis=1)
 
         return result
+
+
+class SafeOneHotEncoder(OneHotEncoder):
+    def get_feature_names(self, input_features=None):
+        """
+        Override this method to remove non-alphanumeric chars from feature names
+        """
+
+        check_is_fitted(self)
+        cats = self.categories_
+        if input_features is None:
+            input_features = ['x%d' % i for i in range(len(cats))]
+        elif len(input_features) != len(self.categories_):
+            raise ValueError(
+                "input_features should have length equal to number of "
+                "features ({}), got {}".format(len(self.categories_),
+                                               len(input_features)))
+
+        feature_names = []
+        for i in range(len(cats)):
+            names = [input_features[i] + '_' + str(idx) + '_' + re.sub('[^A-Za-z0-9_]+', '_', str(t))
+                     for idx, t in enumerate(cats[i])]
+            if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
+                names.pop(self.drop_idx_[i])
+            feature_names.extend(names)
+
+        return np.array(feature_names, dtype=object)
 
 
 class LogStandardScaler:
