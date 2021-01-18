@@ -559,7 +559,7 @@ class SafeOrdinalEncoder(BaseEstimator, TransformerMixin):
         self.dtypes_ = {c: X[c].dtype for c in X.columns}
 
         if self.columns is None:
-            columns = X.select_dtypes(include=["category", 'object']).columns
+            columns = X.select_dtypes(include=["category", 'object', 'bool']).columns
         else:
             columns = self.columns
 
