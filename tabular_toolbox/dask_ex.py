@@ -2,6 +2,7 @@
 """
 
 """
+import re
 from collections import defaultdict
 from functools import partial
 
@@ -421,7 +422,7 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
     #     return self.fit(X, y).transform(X)
 
 
-class OneHotEncoder(dm_pre.OneHotEncoder):
+class SafeOneHotEncoder(dm_pre.OneHotEncoder):
     def fit(self, X, y=None):
         if isinstance(X, (dd.DataFrame, pd.DataFrame)) and self.categories == "auto" \
                 and any(d.name in {'object', 'bool'} for d in X.dtypes):
@@ -441,12 +442,35 @@ class OneHotEncoder(dm_pre.OneHotEncoder):
                     a.append(Xi)
                 X = pd.concat(a, axis=1)
 
-        return super(OneHotEncoder, self).fit(X, y)
+        return super(SafeOneHotEncoder, self).fit(X, y)
 
     def get_feature_names(self, input_features=None):
-        if not hasattr(self, 'drop_idx_'):
-            setattr(self, 'drop_idx_', None)
-        return super(OneHotEncoder, self).get_feature_names(input_features)
+        """
+        Override this method to remove non-alphanumeric chars
+        """
+        # if not hasattr(self, 'drop_idx_'):
+        #     setattr(self, 'drop_idx_', None)
+        # return super(SafeOneHotEncoder, self).get_feature_names(input_features)
+
+        # check_is_fitted(self)
+        cats = self.categories_
+        if input_features is None:
+            input_features = ['x%d' % i for i in range(len(cats))]
+        elif len(input_features) != len(self.categories_):
+            raise ValueError(
+                "input_features should have length equal to number of "
+                "features ({}), got {}".format(len(self.categories_),
+                                               len(input_features)))
+
+        feature_names = []
+        for i in range(len(cats)):
+            names = [input_features[i] + '_' + str(idx) + '_' + re.sub('[^A-Za-z0-9_]+', '_', str(t))
+                     for idx, t in enumerate(cats[i])]
+            # if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
+            #     names.pop(self.drop_idx_[i])
+            feature_names.extend(names)
+
+        return np.array(feature_names, dtype=object)
 
 
 class TruncatedSVD(dm_dec.TruncatedSVD):
