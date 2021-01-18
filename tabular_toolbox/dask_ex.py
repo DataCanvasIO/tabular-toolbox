@@ -424,19 +424,19 @@ class MultiLabelEncoder(BaseEstimator, TransformerMixin):
 class OneHotEncoder(dm_pre.OneHotEncoder):
     def fit(self, X, y=None):
         if isinstance(X, (dd.DataFrame, pd.DataFrame)) and self.categories == "auto" \
-                and any(d.name == 'object' for d in X.dtypes):
+                and any(d.name in {'object', 'bool'} for d in X.dtypes):
             a = []
             if isinstance(X, dd.DataFrame):
                 for i in range(len(X.columns)):
                     Xi = X.iloc[:, i]
-                    if Xi.dtype == 'object':
+                    if Xi.dtype.name in {'object', 'bool'}:
                         Xi = Xi.astype('category').cat.as_known()
                     a.append(Xi)
                 X = dd.concat(a, axis=1, ignore_unknown_divisions=True)
             else:
                 for i in range(len(X.columns)):
                     Xi = X.iloc[:, i]
-                    if Xi.dtype == 'object':
+                    if Xi.dtype.name in {'object', 'bool'}:
                         Xi = Xi.astype('category')
                     a.append(Xi)
                 X = pd.concat(a, axis=1)
