@@ -138,6 +138,11 @@ def vstack_array(arrs):
 
 def stack_array(arrs, axis=0):
     assert axis in (0, 1)
+    ndims = set([len(a.shape) for a in arrs])
+    if len(ndims) > 1:
+        assert ndims == {1, 2}
+        assert all([len(a.shape) == 1 or a.shape[1] == 1 for a in arrs])
+        arrs = [a.reshape(compute(a.shape[0])[0], 1) if len(a.shape) == 1 else a for a in arrs]
     axis = min(axis, min([len(a.shape) for a in arrs]) - 1)
     assert axis >= 0
 
@@ -250,6 +255,7 @@ def _compute_and_call(fn_call, *args, **kwargs):
     args = compute(*args, traverse=False)
     # kwargs = {k: compute(v) if is_dask_array(v) else v for k, v in kwargs.items()}
     r = fn_call(*args, **kwargs)
+    r = to_dask_type(r)
     return r
 
 
