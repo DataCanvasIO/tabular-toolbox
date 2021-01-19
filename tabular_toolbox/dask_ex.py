@@ -142,7 +142,7 @@ def stack_array(arrs, axis=0):
     assert axis >= 0
 
     if exist_dask_object(*arrs):
-        arrs = [a.values if is_dask_dataframe_or_series(a) else a for a in arrs]
+        arrs = [a.values if is_dask_dataframe_or_series(a) else a for a in map(to_dask_type, arrs)]
         if len(arrs) > 1:
             arrs = [make_chunk_size_known(a) for a in arrs]
         return da.concatenate(arrs, axis=axis)
