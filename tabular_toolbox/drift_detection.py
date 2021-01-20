@@ -413,6 +413,8 @@ def covariate_shift_score(X_train, X_test, scorer=None, cv=None, copy_data=True)
     # Preprocess data: imputing and scaling
     preprocessor = general_preprocessor(X_merge)
     X_merge = preprocessor.fit_transform(X_merge)
+    if dex.is_dask_dataframe(X_merge):
+        X_merge = X_merge.persist()
 
     # Calculate the shift score for each column separately.
     scores = {}
@@ -420,7 +422,6 @@ def covariate_shift_score(X_train, X_test, scorer=None, cv=None, copy_data=True)
     for c in X_merge.columns:
         x = X_merge[[c]]
         if dex.is_dask_dataframe(X_merge):
-            X_merge = X_merge.persist()
             x = x.compute()
         model = LGBMClassifier()
         if cv is None:
