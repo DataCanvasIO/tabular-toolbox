@@ -3,8 +3,9 @@ __author__ = 'yangjian'
 """
 
 """
-import numpy as np
 from collections import defaultdict
+
+import numpy as np
 from sklearn.metrics import get_scorer
 from sklearn.metrics._scorer import _PredictScorer
 
@@ -47,6 +48,16 @@ class GreedyEnsemble(BaseEnsemble):
         self.hits_ = None
         self.scorer = get_scorer(scoring)
         self.ensemble_size = ensemble_size
+
+    def __repr__(self) -> str:
+        if self.estimators is None:
+            return 'no estimators'
+
+        if self.weights_ is None:
+            return 'not fitted'
+
+        estimators = [getattr(e, "gbm_model", e) for e in self.estimators]
+        return f'{type(self).__name__}(weight={self.weights_}, estimators={estimators})'
 
     def _repr_html_(self):
         import pandas as pd

@@ -7,11 +7,12 @@ from collections import defaultdict
 
 import dask.array as da
 import numpy as np
-from hypernets.utils import logging
+import pandas as pd
 from sklearn.metrics import get_scorer
 from sklearn.metrics._scorer import _PredictScorer
 
 from tabular_toolbox import dask_ex as dex
+from tabular_toolbox.utils import logging
 from .base_ensemble import BaseEnsemble
 
 logger = logging.get_logger(__name__)
@@ -122,7 +123,7 @@ class DaskGreedyEnsemble(BaseEnsemble):
         self.hits_ = hits
         self.best_stack_ = best_stack
 
-        logger.info(f'ensembled with {len(self.estimators)} estimators, weight:{self.weights_}')
+        logger.info(f'ensembled as {len(self.estimators)} estimators, weight:{self.weights_}')
         return self
 
     def predict(self, X):
@@ -148,3 +149,24 @@ class DaskGreedyEnsemble(BaseEnsemble):
                     proba += est_proba
 
         return proba
+
+    def __repr__(self) -> str:
+        if self.estimators is None:
+            return 'no estimators'
+
+        if self.weights_ is None:
+            return 'not fitted'
+
+        estimators = [getattr(e, "gbm_model", e) for e in self.estimators]
+        return f'{type(self).__name__}(weight={self.weights_}, estimators={estimators})'
+
+    def _repr_html_(self):
+        estimators = [getattr(e, "gbm_model", e) for e in self.estimators] if self.estimators is not None else None
+        df = pd.DataFrame([('weights', self.weights_),
+                           ('scores', self.scores_),
+                           ('best_stack', self.best_stack_),
+                           ('hits', self.hits_),
+                           ('ensemble_size', self.ensemble_size),
+                           ('estimators', f'{estimators}'),
+                           ])
+        return df._repr_html_()
