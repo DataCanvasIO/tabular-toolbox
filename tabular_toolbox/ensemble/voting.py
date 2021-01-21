@@ -39,6 +39,11 @@ class AveragingEnsemble(BaseEnsemble):
 
 
 class GreedyEnsemble(BaseEnsemble):
+    """
+    References
+    ----------
+        Caruana, Rich, et al. "Ensemble selection from libraries of models." Proceedings of the twenty-first international conference on Machine learning. 2004.
+    """
     def __init__(self, task, estimators, need_fit=False, n_folds=5, method='soft', scoring='neg_log_loss',
                  ensemble_size=0):
         super(GreedyEnsemble, self).__init__(task, estimators, need_fit, n_folds, method)
