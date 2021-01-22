@@ -86,8 +86,9 @@ class DaskGreedyEnsemble(BaseEnsemble):
                 if isinstance(self.scorer, _PredictScorer):
                     if self.classes_ is not None:
                         # pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
-                        pred = da.take(da.array(self.classes_), da.argmax(mean_predictions, axis=1), axis=0)
-                    mean_predictions = pred
+                        mean_predictions = da.take(np.array(self.classes_), da.argmax(mean_predictions, axis=1), axis=0)
+                    else:
+                        mean_predictions = pred
                 elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
                     mean_predictions = mean_predictions[:, 1]
                 if dex.is_dask_object(mean_predictions):
@@ -132,7 +133,7 @@ class DaskGreedyEnsemble(BaseEnsemble):
         else:
             preds = self.proba2predict(self.predict_proba(X))
             if self.task != 'regression' and self.classes_ is not None:
-                preds = da.take(da.array(self.classes_), preds, axis=0)
+                preds = da.take(np.array(self.classes_), preds, axis=0)
 
         return preds
 

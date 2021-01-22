@@ -5,6 +5,7 @@
 import re
 from collections import defaultdict
 from functools import partial
+import math
 
 import dask
 import dask.array as da
@@ -90,9 +91,13 @@ def exist_dask_array(*args):
 
 def to_dask_type(X):
     if isinstance(X, np.ndarray):
-        X = da.from_array(X)
+        worker_count = dask_worker_count()
+        chunk_size = math.ceil(X.shape[0] / worker_count) if worker_count > 0 else X.shape[0]
+        X = da.from_array(X, chunks=chunk_size)
     elif isinstance(X, (pd.DataFrame, pd.Series)):
-        X = dd.from_pandas(X, npartitions=1)
+        worker_count = dask_worker_count()
+        partition_count = worker_count if worker_count > 0 else 1
+        X = dd.from_pandas(X, npartitions=partition_count)
 
     return X
 
