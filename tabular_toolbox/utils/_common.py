@@ -63,3 +63,33 @@ def hash_dataframe(df, method='md5', index=False):
     np.vectorize(m.update, otypes=[None], signature='()->()')(x.values)
 
     return m.hexdigest()
+
+
+def load_data(data, **kwargs):
+    if isinstance(data, (pd.DataFrame, dd.DataFrame)):
+        return data
+
+    def dask_enabled():
+        try:
+            from dask.distributed import default_client as dask_default_client
+            client = dask_default_client()
+        except ValueError:
+            client = None
+        return client is not None
+
+    fmt_mapping = {
+        'csv': (pd.read_csv, dd.read_csv),
+        'txt': (pd.read_csv, dd.read_csv),
+        'parquet': (pd.read_parquet, dd.read_parquet),
+        'par': (pd.read_parquet, dd.read_parquet),
+    }
+
+    import os.path as path
+    ext = path.splitext(data)[-1].lstrip('.')
+    if ext not in fmt_mapping.keys():
+        ext = fmt_mapping.keys()[0]
+
+    fn = fmt_mapping[ext][int(dask_enabled())]
+    df = fn(data, **kwargs)
+
+    return df
