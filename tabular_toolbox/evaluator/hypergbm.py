@@ -82,7 +82,6 @@ class HyperGBMEstimator(BaseEstimator):
                                             scorer=get_scorer(self.scorer),
                                             drop_feature_with_collinearity=self.drop_feature_with_collinearity,
                                             drift_detection=True,
-                                            mode=self.mode,
                                             n_est_feature_importance=5,
                                             importance_threshold=1e-5,
                                             two_stage_importance_selection=self.two_stage_importance_selection,
