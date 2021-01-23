@@ -114,8 +114,12 @@ def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task=
     if y_proba is None:
         y_proba = y_preds
     elif y_true.chunks[0] != y_proba.chunks[0]:
-        logger.debug(f'rechunk y_proba with {y_true.chunks[0]}')
-        y_proba = y_proba.rechunk(chunks=y_true.chunks[0])
+        if len(y_proba.chunks) > 1:
+            chunks = (y_true.chunks[0],) + y_proba.chunks[1:]
+        else:
+            chunks = y_true.chunks
+        logger.debug(f'rechunk y_proba with {chunks}')
+        y_proba = y_proba.rechunk(chunks=chunks)
 
     for metric in metrics:
         if callable(metric):
