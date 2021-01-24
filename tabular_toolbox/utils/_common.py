@@ -66,16 +66,20 @@ def hash_dataframe(df, method='md5', index=False):
 
 
 def load_data(data, **kwargs):
+    assert isinstance(data, (str, pd.DataFrame, dd.DataFrame))
+
     if isinstance(data, (pd.DataFrame, dd.DataFrame)):
         return data
 
-    def dask_enabled():
-        try:
-            from dask.distributed import default_client as dask_default_client
-            client = dask_default_client()
-        except ValueError:
-            client = None
-        return client is not None
+    import os.path as path
+    import glob
+
+    try:
+        from dask.distributed import default_client as dask_default_client
+        client = dask_default_client()
+        dask_enabled, worker_count = True, len(client.ncores())
+    except ValueError:
+        dask_enabled, worker_count = False, 1
 
     fmt_mapping = {
         'csv': (pd.read_csv, dd.read_csv),
@@ -84,12 +88,35 @@ def load_data(data, **kwargs):
         'par': (pd.read_parquet, dd.read_parquet),
     }
 
-    import os.path as path
-    ext = path.splitext(data)[-1].lstrip('.')
-    if ext not in fmt_mapping.keys():
-        ext = fmt_mapping.keys()[0]
+    def get_file_format(file_path):
+        return path.splitext(file_path)[-1].lstrip('.')
 
-    fn = fmt_mapping[ext][int(dask_enabled())]
+    def get_file_format_by_glob(data_pattern):
+        for f in glob.glob(data_pattern, recursive=True):
+            fmt_ = get_file_format(f)
+            if fmt_ in fmt_mapping.keys():
+                return fmt_
+        return None
+
+    if glob.has_magic(data):
+        fmt = get_file_format_by_glob(data)
+    elif not path.exists(data):
+        raise ValueError(f'Not found path {data}')
+    elif path.isdir(data):
+        path_pattern = f'{data}*' if data.endswith(path.sep) else f'{data}{path.sep}*'
+        fmt = get_file_format_by_glob(path_pattern)
+    else:
+        fmt = path.splitext(data)[-1].lstrip('.')
+
+    if fmt not in fmt_mapping.keys():
+        fmt = fmt_mapping.keys()[0]
+
+    if dask_enabled and path.isdir(data) and not glob.has_magic(data):
+        data = f'{data}*' if data.endswith(path.sep) else f'{data}{path.sep}*'
+    fn = fmt_mapping[fmt][int(dask_enabled)]
     df = fn(data, **kwargs)
+
+    if dask_enabled and worker_count > 1 and df.npartitions < worker_count:
+        df = df.repartition(npartitions=worker_count)
 
     return df
