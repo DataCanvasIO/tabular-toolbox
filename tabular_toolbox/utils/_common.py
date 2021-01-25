@@ -16,7 +16,11 @@ def infer_task_type(y):
         task = 'multilable'
         return task, labels
 
-    uniques = set(y)
+    if hasattr(y, 'unique'):
+        uniques = set(y.unique())
+    else:
+        uniques = set(y)
+
     if uniques.__contains__(np.nan):
         uniques.remove(np.nan)
     n_unique = len(uniques)

@@ -68,7 +68,7 @@ class DaskGreedyEnsemble(BaseEnsemble):
         best_stack = []
         sum_predictions = None
         n_estimators = len(self.estimators)
-        size = self.ensemble_size if self.ensemble_size > 0 else n_estimators
+        size = min(self.ensemble_size, n_estimators) if self.ensemble_size > 0 else n_estimators
 
         logger.info(f'start ensemble {n_estimators} estimators')
 
