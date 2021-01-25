@@ -102,6 +102,36 @@ def to_dask_type(X):
     return X
 
 
+def _reset_part_index(df, start):
+    new_index = pd.RangeIndex.from_range(range(start, start + df.shape[0]))
+    df.index = new_index
+    return df
+
+
+def reset_index(X):
+    assert isinstance(X, (pd.DataFrame, dd.DataFrame))
+
+    if is_dask_dataframe(X):
+        part_rows = X.map_partitions(lambda df: pd.DataFrame({'rows': [df.shape[0]]}),
+                                     meta={'rows': 'int64'},
+                                     ).compute()['rows'].tolist()
+        assert len(part_rows) == X.npartitions
+
+        divisions = [0]
+        n = 0
+        for i in part_rows:
+            n += i
+            divisions.append(n)
+        divisions[-1] = divisions[-1] - 1
+
+        delayed_reset_part_index = dask.delayed(_reset_part_index)
+        parts = [delayed_reset_part_index(part, start) for part, start in zip(X.to_delayed(), divisions[0:-1])]
+        X_new = dd.from_delayed(parts, divisions=divisions, meta=X.dtypes.to_dict())
+        return X_new
+    else:
+        return X.reset_index(drop=True)
+
+
 def make_chunk_size_known(a):
     assert is_dask_array(a)
 
@@ -161,6 +191,7 @@ def stack_array(arrs, axis=0):
 
 
 def array_to_df(arrs, columns=None, meta=None):
+    logger.info('[array_to_df]  enter ')
     meta_df = None
     if isinstance(meta, (dd.DataFrame, pd.DataFrame)):
         meta_df = meta
@@ -182,10 +213,12 @@ def array_to_df(arrs, columns=None, meta=None):
             if dtypes_src[col] != dtypes_dst[col]:
                 df[col] = df[col].astype(dtypes_src[col])
 
+    logger.info('[array_to_df]  done')
     return df
 
 
 def concat_df(dfs, axis=0, repartition=False, **kwargs):
+    logger.info(f'[concat_df] enter with axis={axis}')
     if exist_dask_object(*dfs):
         dfs = [dd.from_dask_array(v) if is_dask_array(v) else v for v in dfs]
         if axis == 0:
@@ -202,21 +235,27 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
     else:
         df = pd.concat(dfs, axis=axis, **kwargs)
 
+    logger.info(f'[concat_df] done')
     return df
 
 
 def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
+    logger.info('[train_test_split] enter')
     if exist_dask_dataframe(*data):
         if len(data) > 1:
             data = [make_divisions_known(to_dask_type(x)) for x in data]
             head = data[0]
             for i in range(1, len(data)):
                 if data[i].divisions != head.divisions:
+                    print('-' * 10, f'repartition {i} from {data[i].divisions} to {head.divisions}')
                     data[i] = data[i].repartition(divisions=head.divisions)
 
-        return dm_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
+        result = dm_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
     else:
-        return sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
+        result = sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
+
+    logger.info('[train_test_split] done')
+    return result
 
 
 def fix_binary_predict_proba_result(proba):
@@ -257,10 +296,17 @@ def wrap_for_local_scorer(estimator, target_type):
 
 
 def _compute_and_call(fn_call, *args, **kwargs):
+    logger.info(f'[_compute_and_call] compute {len(args)} object')
     args = compute(*args, traverse=False)
+
+    logger.info(f'[_compute_and_call] call {fn_call.__name__}')
     # kwargs = {k: compute(v) if is_dask_array(v) else v for k, v in kwargs.items()}
     r = fn_call(*args, **kwargs)
+
+    logger.info('[_compute_and_call] to dask type')
     r = to_dask_type(r)
+
+    logger.info('[_compute_and_call] done')
     return r
 
 
