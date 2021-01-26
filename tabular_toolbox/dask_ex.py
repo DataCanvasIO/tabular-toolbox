@@ -295,18 +295,18 @@ def wrap_for_local_scorer(estimator, target_type):
     return estimator
 
 
-def _compute_and_call(fn_call, *args, **kwargs):
-    logger.info(f'[_compute_and_call] compute {len(args)} object')
+def compute_and_call(fn_call, *args, **kwargs):
+    logger.info(f'[compute_and_call] compute {len(args)} object')
     args = compute(*args, traverse=False)
 
-    logger.info(f'[_compute_and_call] call {fn_call.__name__}')
+    logger.info(f'[compute_and_call] call {fn_call.__name__}')
     # kwargs = {k: compute(v) if is_dask_array(v) else v for k, v in kwargs.items()}
     r = fn_call(*args, **kwargs)
 
-    logger.info('[_compute_and_call] to dask type')
+    logger.info('[compute_and_call] to dask type')
     r = to_dask_type(r)
 
-    logger.info('[_compute_and_call] done')
+    logger.info('[compute_and_call] done')
     return r
 
 
@@ -317,7 +317,7 @@ def wrap_local_estimator(estimator):
             fn = getattr(estimator, fn_name)
             assert callable(fn)
             setattr(estimator, fn_name_original, fn)
-            setattr(estimator, fn_name, partial(_compute_and_call, fn))
+            setattr(estimator, fn_name, partial(compute_and_call, fn))
 
     return estimator
 
