@@ -49,13 +49,24 @@ class DaskGreedyEnsemble(BaseEnsemble):
         assert predictions is None or isinstance(predictions, (tuple, list))
         assert y_true is not None
 
+        if predictions is None:
+            predictions = [None for e in self.estimators]
+        elif self.method == 'hard':
+            predictions = [self.proba2predict(pred) if pred is not None else None
+                           for pred in predictions]
+        else:
+            predictions = list(predictions)
+
         def get_prediction(j):
-            if predictions is not None and predictions[j] is not None:
+            if predictions[j] is not None:
                 pred = predictions[j]
                 if self.method == 'hard' and len(pred.shape) > 1 and pred.shape[1] > 1:
                     pred = self.proba2predict(pred)
             elif X is not None:
                 pred = self.__predict(self.estimators[j], X)
+                if dex.is_dask_object(pred):
+                    pred = pred.compute()
+                predictions[j] = pred
             else:
                 raise ValueError(f'Not found predictions for estimator {j}')
             return pred
@@ -81,18 +92,19 @@ class DaskGreedyEnsemble(BaseEnsemble):
             for j in range(n_estimators):
                 pred = get_prediction(j)
                 if sum_predictions is None:
-                    sum_predictions = da.zeros_like(pred, dtype=np.float64)
+                    sum_predictions = np.zeros(pred.shape, dtype=np.float64)
                 mean_predictions = (sum_predictions + pred) / (len(best_stack) + 1)
                 if isinstance(self.scorer, _PredictScorer):
                     if self.classes_ is not None:
                         # pred = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
-                        mean_predictions = da.take(np.array(self.classes_), da.argmax(mean_predictions, axis=1), axis=0)
+                        mean_predictions = np.array(self.classes_).take(np.argmax(mean_predictions, axis=1), axis=0)
+                        # mean_predictions=da.take(np.array(self.classes_),da.argmax(mean_predictions, axis=1), axis=0)
                     else:
                         mean_predictions = pred
                 elif self.task == 'binary' and len(mean_predictions.shape) == 2 and mean_predictions.shape[1] == 2:
                     mean_predictions = mean_predictions[:, 1]
-                if dex.is_dask_object(mean_predictions):
-                    mean_predictions = mean_predictions.compute()
+                # if dex.is_dask_object(mean_predictions):
+                #     mean_predictions = mean_predictions.compute()
                 score = self.scorer._score_func(y_true, mean_predictions, **self.scorer._kwargs) * self.scorer._sign
                 stack_scores.append(score)
                 stack_preds.append(pred)
