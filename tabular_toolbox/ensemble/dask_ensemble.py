@@ -21,11 +21,12 @@ logger = logging.get_logger(__name__)
 class DaskGreedyEnsemble(BaseEnsemble):
 
     def __init__(self, task, estimators, need_fit=False, n_folds=5, method='soft', random_state=9527,
-                 scoring='neg_log_loss', ensemble_size=0):
+                 scoring='neg_log_loss', ensemble_size=0, predict_kwargs=None):
         super().__init__(task, estimators, need_fit, n_folds, method, random_state)
 
         self.scorer = get_scorer(scoring)
         self.ensemble_size = ensemble_size
+        self.predict_kwargs = predict_kwargs
 
         # fitted
         self.weights_ = None
@@ -39,7 +40,10 @@ class DaskGreedyEnsemble(BaseEnsemble):
         else:
             if self.classes_ is None and hasattr(estimator, 'classes_'):
                 self.classes_ = estimator.classes_
-            pred = estimator.predict_proba(X)
+            if isinstance(self.predict_kwargs, dict):
+                pred = estimator.predict_proba(X, **self.predict_kwargs)
+            else:
+                pred = estimator.predict_proba(X)
             if self.method == 'hard':
                 pred = self.proba2predict(pred)
         return pred
