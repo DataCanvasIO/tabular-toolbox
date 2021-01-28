@@ -341,16 +341,14 @@ class DriftDetector():
             proba = estimator.predict_proba(X)[:, 1]
             oof_proba.append(proba)
         if dex.is_dask_dataframe(X):
-            proba = da.mean(dex.vstack_array(oof_proba), axis=0)
+            proba = da.mean(dex.hstack_array(oof_proba), axis=1)
         else:
             proba = np.mean(oof_proba, axis=0)
         return proba
 
     def train_test_split(self, X, y, test_size=0.25, remain_for_train=0.3):
-        proba = self.predict_proba(X)
-        sorted_indices = np.argsort(proba)
-        target = '__train_test_split_y__'
-        X.insert(0, target, y)
+        if dex.exist_dask_object(X, y):
+            return self.train_test_split_by_dask(X, y, test_size=test_size, remain_for_train=remain_for_train)
 
         assert remain_for_train < 1.0 and remain_for_train >= 0, '`remain_for_train` must be < 1.0 and >= 0.'
         if isinstance(test_size, float):
@@ -360,6 +358,11 @@ class DriftDetector():
         split_size = int(test_size + test_size * remain_for_train)
         assert split_size < X.shape[0], \
             'test_size+test_size*remain_for_train must be less than the number of samples in X.'
+
+        proba = self.predict_proba(X)
+        sorted_indices = np.argsort(proba)
+        target = '__train_test_split_y__'
+        X.insert(0, target, y)
 
         if remain_for_train == 0:
             X_train = X.iloc[sorted_indices[:-test_size]]
@@ -373,6 +376,40 @@ class DriftDetector():
             X_train_2, X_test = dex.train_test_split(X_mixed, test_size=test_size, shuffle=True,
                                                      random_state=self.random_state)
             X_train = pd.concat([X_train_1, X_train_2], axis=0)
+            y_train = X_train.pop(target)
+            y_test = X_test.pop(target)
+            return X_train, X_test, y_train, y_test
+
+    def train_test_split_by_dask(self, X, y, test_size=0.25, remain_for_train=0.3):
+        x_shape = dex.compute(X.shape)[0]
+        assert remain_for_train < 1.0 and remain_for_train >= 0, '`remain_for_train` must be < 1.0 and >= 0.'
+        if isinstance(test_size, float):
+            assert test_size < 1.0 and test_size > 0, '`test_size` must be < 1.0 and > 0.'
+            test_size = int(x_shape[0] * test_size)
+        assert isinstance(test_size, int), '`test_size` can only be int or float'
+        split_size = int(test_size + test_size * remain_for_train)
+        assert split_size < x_shape[0], \
+            'test_size+test_size*remain_for_train must be less than the number of samples in X.'
+
+        X = X.copy()
+        proba = self.predict_proba(X)
+        sorted_indices = np.argsort(proba.compute())
+        target = '__train_test_split_y__'
+        X[target] = y
+
+        X_values = X.to_dask_array(lengths=True)
+        if remain_for_train == 0:
+            X_train = dex.array_to_df(X_values[sorted_indices[:-test_size]], meta=X)
+            X_test = dex.array_to_df(X_values[sorted_indices[-test_size:]], meta=X)
+            y_train = X_train.pop(target)
+            y_test = X_test.pop(target)
+            return X_train, X_test, y_train, y_test
+        else:
+            X_train_1 = dex.array_to_df(X_values[sorted_indices[:-split_size]], meta=X)
+            X_mixed = dex.array_to_df(X_values[sorted_indices[-split_size:]], meta=X)
+            X_train_2, X_test = dex.train_test_split(X_mixed, test_size=test_size, shuffle=True,
+                                                     random_state=self.random_state)
+            X_train = dex.concat_df([X_train_1, X_train_2], axis=0)
             y_train = X_train.pop(target)
             y_test = X_test.pop(target)
             return X_train, X_test, y_train, y_test

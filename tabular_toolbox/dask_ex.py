@@ -2,10 +2,10 @@
 """
 
 """
+import math
 import re
 from collections import defaultdict
 from functools import partial
-import math
 
 import dask
 import dask.array as da
@@ -164,6 +164,9 @@ def make_divisions_known(X):
 
 
 def hstack_array(arrs):
+    if all([a.ndim == 1 for a in arrs]):
+        rows = compute(arrs[0].shape)[0][0]
+        arrs = [a.reshape(rows, 1) if a.ndim == 1 else a for a in arrs]
     return stack_array(arrs, axis=1)
 
 
@@ -222,7 +225,7 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
     if exist_dask_object(*dfs):
         dfs = [dd.from_dask_array(v) if is_dask_array(v) else v for v in dfs]
         if axis == 0:
-            values = [df.to_dask_array(lengths=True) for df in dfs]
+            values = [df[dfs[0].columns].to_dask_array(lengths=True) for df in dfs]
             df = array_to_df(vstack_array(values), meta=dfs[0])
         else:
             dfs = [make_divisions_known(df) for df in dfs]
