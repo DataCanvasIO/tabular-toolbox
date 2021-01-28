@@ -58,8 +58,11 @@ class DaskGreedyEnsemble(BaseEnsemble):
         elif self.method == 'hard':
             predictions = [self.proba2predict(pred) if pred is not None else None
                            for pred in predictions]
-        else:
-            predictions = list(predictions)
+        # else:
+        #     predictions = list(predictions)
+
+        predictions = [pred.compute() if dex.is_dask_object(pred) else pred
+                       for pred in predictions]
 
         def get_prediction(j):
             if predictions[j] is not None:
