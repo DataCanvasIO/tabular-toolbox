@@ -194,7 +194,6 @@ def stack_array(arrs, axis=0):
 
 
 def array_to_df(arrs, columns=None, meta=None):
-    logger.info('[array_to_df]  enter ')
     meta_df = None
     if isinstance(meta, (dd.DataFrame, pd.DataFrame)):
         meta_df = meta
@@ -216,7 +215,6 @@ def array_to_df(arrs, columns=None, meta=None):
             if dtypes_src[col] != dtypes_dst[col]:
                 df[col] = df[col].astype(dtypes_src[col])
 
-    logger.info('[array_to_df]  done')
     return df
 
 
@@ -243,7 +241,6 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
 
 
 def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
-    logger.info('[train_test_split] enter')
     if exist_dask_dataframe(*data):
         if len(data) > 1:
             data = [make_divisions_known(to_dask_type(x)) for x in data]
@@ -257,7 +254,6 @@ def train_test_split(*data, shuffle=True, random_state=None, **kwargs):
     else:
         result = sk_sel.train_test_split(*data, shuffle=shuffle, random_state=random_state, **kwargs)
 
-    logger.info('[train_test_split] done')
     return result
 
 
@@ -299,17 +295,22 @@ def wrap_for_local_scorer(estimator, target_type):
 
 
 def compute_and_call(fn_call, *args, **kwargs):
-    logger.info(f'[compute_and_call] compute {len(args)} object')
+    if logger.is_debug_enabled():
+        logger.debug(f'[compute_and_call] compute {len(args)} object')
+
     args = compute(*args, traverse=False)
 
-    logger.info(f'[compute_and_call] call {fn_call.__name__}')
+    if logger.is_debug_enabled():
+        logger.debug(f'[compute_and_call] call {fn_call.__name__}')
     # kwargs = {k: compute(v) if is_dask_array(v) else v for k, v in kwargs.items()}
     r = fn_call(*args, **kwargs)
 
-    logger.info('[compute_and_call] to dask type')
+    if logger.is_debug_enabled():
+        logger.debug('[compute_and_call] to dask type')
     r = to_dask_type(r)
 
-    logger.info('[compute_and_call] done')
+    if logger.is_debug_enabled():
+        logger.debug('[compute_and_call] done')
     return r
 
 
