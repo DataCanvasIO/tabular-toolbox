@@ -164,7 +164,7 @@ class SafeOrdinalEncoder(OrdinalEncoder):
             return vf
 
         values = X if isinstance(X, np.ndarray) else X.values
-        decoders_ = [make_decoder(cat, X.dtypes[i]) for i, cat in enumerate(self.categories_)]
+        decoders_ = [make_decoder(cat, cat.dtype) for i, cat in enumerate(self.categories_)]
         result = [decoders_[i](values[:, i]) for i in range(values.shape[1])]
 
         if isinstance(X, pd.DataFrame):

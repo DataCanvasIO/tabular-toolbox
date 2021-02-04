@@ -55,14 +55,14 @@ def test_ordinal_encoder():
     ec = SafeOrdinalEncoder(dtype=np.int32)
     df = ec.fit_transform(dd.from_pandas(df1, npartitions=2)).compute()
     df_expect = pd.DataFrame({"A": [1, 2, 3, 4],
-                              "B": [0, 0, 0, 1]})
+                              "B": [1, 1, 1, 2]})
     # diff = (df - df_expect).values
     # assert np.count_nonzero(diff) == 0
     assert np.where(df_expect.values == df.values, 0, 1).sum() == 0
 
     df = ec.transform(dd.from_pandas(df2, npartitions=1)).compute()
     df_expect = pd.DataFrame({"A": [1, 2, 3, 5],
-                              "B": [0, 1, 2, 2]})
+                              "B": [1, 2, 0, 0]})
     assert np.where(df_expect.values == df.values, 0, 1).sum() == 0
 
     df = ec.inverse_transform(dd.from_pandas(df_expect, npartitions=1)).compute()
