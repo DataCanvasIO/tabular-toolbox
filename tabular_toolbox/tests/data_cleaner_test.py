@@ -42,6 +42,7 @@ class Test_DataCleaner():
                                   drop_constant_columns=True,
                                   drop_label_nan_rows=True,
                                   drop_duplicated_columns=True,
+                                  drop_idness_columns=False,
                                   replace_inf_values=np.nan
                                   )
 
@@ -70,6 +71,7 @@ class Test_DataCleaner():
                                   drop_constant_columns=True,
                                   drop_label_nan_rows=True,
                                   drop_duplicated_columns=False,
+                                  drop_idness_columns=False,
                                   replace_inf_values=np.nan
                                   )
 
@@ -90,6 +92,7 @@ class Test_DataCleaner():
                                   drop_constant_columns=True,
                                   drop_label_nan_rows=False,
                                   drop_duplicated_columns=False,
+                                  drop_idness_columns=False,
                                   replace_inf_values=np.nan
                                   )
 
@@ -104,6 +107,7 @@ class Test_DataCleaner():
                                   drop_constant_columns=True,
                                   drop_label_nan_rows=False,
                                   drop_duplicated_columns=False,
+                                  drop_idness_columns=False,
                                   replace_inf_values=np.nan
                                   )
 
@@ -123,6 +127,7 @@ class Test_DataCleaner():
                                   drop_constant_columns=False,
                                   drop_label_nan_rows=False,
                                   drop_duplicated_columns=False,
+                                  drop_idness_columns=False,
                                   replace_inf_values=np.nan
                                   )
 
