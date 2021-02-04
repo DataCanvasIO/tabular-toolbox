@@ -82,7 +82,12 @@ class MultiLabelEncoder:
         n_features = X.shape[1]
         assert n_features == len(self.encoders.items())
         for n in range(n_features):
-            X.iloc[:, n] = self.encoders[n].transform(X.iloc[:, n])
+            if isinstance(X, np.ndarray):
+                X[:, n] = self.encoders[n].transform(X[:, n])
+            elif isinstance(X, pd.DataFrame):
+                X.iloc[:, n] = self.encoders[n].transform(X.iloc[:, n])
+            else:
+                raise NotImplementedError('Not supported type')
         return X
 
 
