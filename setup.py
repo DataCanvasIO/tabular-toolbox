@@ -38,8 +38,9 @@ def read_extra_requirements():
 
     return extra
 
+import tabular_toolbox
 
-version = '0.1.2'
+version = tabular_toolbox.__version__
 
 MIN_PYTHON_VERSION = '>=3.6.*'
 
