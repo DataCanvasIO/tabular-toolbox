@@ -219,7 +219,6 @@ def array_to_df(arrs, columns=None, meta=None):
 
 
 def concat_df(dfs, axis=0, repartition=False, **kwargs):
-    logger.info(f'[concat_df] enter with axis={axis}')
     if exist_dask_object(*dfs):
         dfs = [dd.from_dask_array(v) if is_dask_array(v) else v for v in dfs]
         if axis == 0:
@@ -236,7 +235,6 @@ def concat_df(dfs, axis=0, repartition=False, **kwargs):
     else:
         df = pd.concat(dfs, axis=axis, **kwargs)
 
-    logger.info(f'[concat_df] done')
     return df
 
 
