@@ -57,11 +57,10 @@ def _drop_duplicated_columns(X):
     else:
         duplicates = X.T.duplicated()
 
-    columns = [i for i, v in duplicates.items() if not v]
-    droped = list(set(X.columns.to_list()) - set(columns))
-
+    dup_cols = [i for i, v in duplicates.items() if v]
+    columns = [c for c in X.columns.to_list() if c not in dup_cols]
     X = X[columns]
-    return X, droped
+    return X, dup_cols
 
 
 def _correct_object_dtype(X):
@@ -102,11 +101,10 @@ def _drop_constant_columns(X):
     else:
         nunique = X.nunique(dropna=True)
 
-    columns = [i for i, v in nunique.items() if v > 1]
-
-    droped = list(set(X.columns.to_list()) - set(columns))
+    const_cols = [i for i, v in nunique.items() if v <= 1]
+    columns = [c for c in X.columns.to_list() if c not in const_cols]
     X = X[columns]
-    return X, droped
+    return X, const_cols
 
 
 def _drop_idness_columns(X):
@@ -124,7 +122,7 @@ def _drop_idness_columns(X):
         rows = X_.shape[0]
 
     droped = [i for i, v in nunique.items() if v / rows > 0.99]
-    columns = list(set(X.columns.to_list()) - set(droped))
+    columns = [c for c in X.columns.to_list() if c not in droped]
     X = X[columns]
     return X, droped
 
@@ -144,6 +142,7 @@ class DataCleaner:
         self.reduce_mem_usage = reduce_mem_usage
         self.int_convert_to = int_convert_to
         self.df_meta_ = None
+        self.columns_ = None
 
         self.dropped_constant_columns_ = None
         self.dropped_idness_columns_ = None
@@ -241,6 +240,7 @@ class DataCleaner:
             df_meta[dtype].append(col_info[0])
         self.df_meta_ = df_meta
         logger.info(f'dataframe meta:{self.df_meta_}')
+        self.columns_ = X.columns.to_list()
         return X, y
 
     def transform(self, X, y=None, copy_data=True):
@@ -262,6 +262,8 @@ class DataCleaner:
         if self.replace_inf_values is not None:
             logger.debug(f'replace [inf,-inf] to {self.replace_inf_values}')
             X = X.replace([np.inf, -np.inf], self.replace_inf_values)
+
+        X = X[self.columns_]
         if y is None:
             return X
         else:
