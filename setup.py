@@ -38,6 +38,7 @@ def read_extra_requirements():
 
     return extra
 
+
 import tabular_toolbox
 
 version = tabular_toolbox.__version__
@@ -78,6 +79,7 @@ setup(
     ],
     packages=find_packages(exclude=('docs', 'tests')),
     package_data={
+        'tabular_toolbox': ['datasets/*.csv', 'datasets/*.gz'],
     },
     zip_safe=False,
     include_package_data=True,
