@@ -25,14 +25,11 @@ def select_by_multicollinearity(X, method=None):
     :return:
     """
     if (method is None or method == 'spearman') and isinstance(X, pd.DataFrame):
-        if np.isnan(X).any().any():
-            imp = SimpleImputer(missing_values=np.nan, strategy='most_frequent')
-            Xt = imp.fit_transform(X)
-        else:
-            Xt = X
+        Xt = SimpleImputer(missing_values=np.nan, strategy='most_frequent').fit_transform(X)
         corr = spearmanr(Xt).correlation
     elif isinstance(X, pd.DataFrame):
-        Xt = skex.SafeOrdinalEncoder().fit_transform(X)
+        Xt = SimpleImputer(missing_values=np.nan, strategy='most_frequent').fit_transform(X)
+        Xt = skex.SafeOrdinalEncoder().fit_transform(Xt)
         corr = Xt.corr(method=method).values
     else:  # dask
         Xt = dex.SafeOrdinalEncoder().fit_transform(X)
