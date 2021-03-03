@@ -63,8 +63,8 @@ class Test_DataCleaner():
                 x_t, y_t = x_t.compute(), y_t.compute()
             assert x_t.shape == (5, 3)
             assert y_t.shape == (5,)
-            assert x_t.columns.to_list() == ['x1_int_nanchar', 'x7_dup_f1', 'x5_dup_1']
-            assert list(x_t.dtypes.values) == [dtype('float64'), dtype('float64'), dtype('O')]
+            assert x_t.columns.to_list() == ['x1_int_nanchar', 'x5_dup_1', 'x7_dup_f1']
+            assert list(x_t.dtypes.values) == [dtype('float64'), dtype('O'), dtype('float64')]
 
             cleaner = DataCleaner(nan_chars='\\N',
                                   correct_object_dtype=True,
