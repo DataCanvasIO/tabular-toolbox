@@ -1,4 +1,4 @@
-numpy<1.19.0,>=1.16.0
+numpy>=1.16.5
 pandas>=0.25.3
 scipy
 scikit-learn>=0.22.1
@@ -8,3 +8,4 @@ dask
 dask-ml
 lightgbm
 pyarrow
+fsspec

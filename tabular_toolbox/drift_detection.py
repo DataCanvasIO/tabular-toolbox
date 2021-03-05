@@ -12,7 +12,6 @@ import dask.dataframe as dd
 import dask_ml.impute as dimp
 import dask_ml.model_selection as dsel
 import dask_ml.preprocessing as dpre
-import dask_xgboost
 import numpy as np
 import pandas as pd
 from lightgbm.sklearn import LGBMClassifier
@@ -73,6 +72,7 @@ def _wrap_predict_proba(estimator):
 
 def _get_estimator(X, estimator=None):
     if dex.is_dask_dataframe(X):
+        import dask_xgboost
         estimator_ = dask_xgboost.XGBClassifier(max_depth=5,
                                                 n_estimators=50,
                                                 min_child_weight=3,

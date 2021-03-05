@@ -69,6 +69,12 @@ def hash_dataframe(df, method='md5', index=False):
     return m.hexdigest()
 
 
+def hash_data(data, method='md5'):
+    m = getattr(hashlib, method)()
+    m.update(data)
+    return m.hexdigest()
+
+
 def load_data(data, **kwargs):
     assert isinstance(data, (str, pd.DataFrame, dd.DataFrame))
 

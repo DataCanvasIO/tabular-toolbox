@@ -280,6 +280,8 @@ class DataCleaner:
                 meta[dtype] = [c for c in cols if c not in columns]
             self.df_meta_ = meta
 
+        self.columns_ = [c for c in self.columns_ if c not in columns]
+
     def _repr_html_(self):
         cleaner_info = []
         cleaner_info.append(('Meta', self.df_meta_))
