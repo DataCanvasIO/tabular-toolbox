@@ -1,4 +1,5 @@
 import hashlib
+from functools import partial
 
 import dask.dataframe as dd
 import numpy as np
@@ -92,7 +93,7 @@ def load_data(data, **kwargs):
         dask_enabled, worker_count = False, 1
 
     fmt_mapping = {
-        'csv': (pd.read_csv, dd.read_csv),
+        'csv': (partial(pd.read_csv, low_memory=False), dd.read_csv),
         'txt': (pd.read_csv, dd.read_csv),
         'parquet': (pd.read_parquet, dd.read_parquet),
         'par': (pd.read_parquet, dd.read_parquet),
