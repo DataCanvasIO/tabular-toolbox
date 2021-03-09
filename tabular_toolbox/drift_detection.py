@@ -9,9 +9,6 @@ import time
 import dask
 import dask.array as da
 import dask.dataframe as dd
-import dask_ml.impute as dimp
-import dask_ml.model_selection as dsel
-import dask_ml.preprocessing as dpre
 import numpy as np
 import pandas as pd
 from lightgbm.sklearn import LGBMClassifier
@@ -37,6 +34,8 @@ matthews_corrcoef_scorer = make_scorer(matthews_corrcoef)
 
 def general_preprocessor(X):
     if dex.is_dask_dataframe(X):
+        import dask_ml.impute as dimp
+        import dask_ml.preprocessing as dpre
         cat_steps = [('imputer_cat', dimp.SimpleImputer(strategy='constant', fill_value='')),
                      ('encoder', dex.SafeOrdinalEncoder())]
         num_steps = [('imputer_num', dimp.SimpleImputer(strategy='mean')),
@@ -71,35 +70,51 @@ def _wrap_predict_proba(estimator):
 
 
 def _get_estimator(X, estimator=None):
-    if dex.is_dask_dataframe(X):
+    def default_gbm():
+        return LGBMClassifier(n_estimators=50,
+                              num_leaves=15,
+                              max_depth=5,
+                              subsample=0.5,
+                              subsample_freq=1,
+                              colsample_bytree=0.8,
+                              reg_alpha=1,
+                              reg_lambda=1,
+                              importance_type='gain', )
+
+    def default_dt():
+        return DecisionTreeClassifier(min_samples_leaf=20, min_impurity_decrease=0.01)
+
+    def default_rf():
+        return RandomForestClassifier(min_samples_leaf=20, min_impurity_decrease=0.01)
+
+    def default_dask_xgb():
         import dask_xgboost
-        estimator_ = dask_xgboost.XGBClassifier(max_depth=5,
-                                                n_estimators=50,
-                                                min_child_weight=3,
-                                                gamma=1,
-                                                # reg_alpha=0.1,
-                                                # reg_lambda=0.1,
-                                                subsample=0.6,
-                                                colsample_bytree=0.6,
-                                                eval_metric='auc',
-                                                # objective='binary:logitraw',
-                                                tree_method='approx', )
-        estimator_ = _wrap_predict_proba(estimator_)
+        return dask_xgboost.XGBClassifier(max_depth=5,
+                                          n_estimators=50,
+                                          min_child_weight=3,
+                                          gamma=1,
+                                          # reg_alpha=0.1,
+                                          # reg_lambda=0.1,
+                                          subsample=0.6,
+                                          colsample_bytree=0.6,
+                                          eval_metric='auc',
+                                          # objective='binary:logitraw',
+                                          tree_method='approx', )
+
+    if dex.is_dask_dataframe(X):
+        try:
+            estimator_ = default_dask_xgb()
+            estimator_ = _wrap_predict_proba(estimator_)
+        except ImportError:  # failed to import dask_xgboost
+            estimator_ = default_gbm()
+            estimator_ = dex.wrap_local_estimator(estimator_)
     else:
         if estimator is None or estimator == 'gbm':
-            estimator_ = LGBMClassifier(n_estimators=50,
-                                        num_leaves=15,
-                                        max_depth=5,
-                                        subsample=0.5,
-                                        subsample_freq=1,
-                                        colsample_bytree=0.8,
-                                        reg_alpha=1,
-                                        reg_lambda=1,
-                                        importance_type='gain', )
+            estimator_ = default_gbm()
         elif estimator == 'dt':
-            estimator_ = DecisionTreeClassifier(min_samples_leaf=20, min_impurity_decrease=0.01)
+            estimator_ = default_dt()
         elif estimator == 'rf':
-            estimator_ = RandomForestClassifier(min_samples_leaf=20, min_impurity_decrease=0.01)
+            estimator_ = default_rf()
         else:
             estimator_ = copy.deepcopy(estimator)
 
@@ -232,6 +247,7 @@ class DriftDetector():
             X_test.columns.to_list())) == 0, 'The name of columns in X_train and X_test must be the same.'
 
         if dex.exist_dask_dataframe(X_train, X_test):
+            import dask_ml.model_selection as dsel
             train_shape, test_shape = dask.compute(X_train.shape, X_test.shape)
             iterators = dsel.KFold(n_splits=cv, shuffle=True, random_state=1001)
         else:
