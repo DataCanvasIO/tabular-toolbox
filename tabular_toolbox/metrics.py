@@ -2,13 +2,13 @@
 """
 
 """
-import dask_ml.metrics as dm_metrics
+
 import numpy as np
-from dask import dataframe as dd, array as da
+from dask import dataframe as dd
 from sklearn import metrics as sk_metrics
 
-from tabular_toolbox.utils import logging
 from tabular_toolbox import dask_ex as dex
+from tabular_toolbox.utils import logging
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,8 @@ def _calc_score_sklean(y_true, y_preds, y_proba=None, metrics=('accuracy',), tas
 
 
 def _calc_score_dask(y_true, y_preds, y_proba=None, metrics=('accuracy',), task='binary', pos_label=1):
+    import dask_ml.metrics as dm_metrics
+
     def to_array(name, value):
         if value is None:
             return value
