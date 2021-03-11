@@ -97,6 +97,9 @@ def load_data(data, **kwargs):
         'txt': (pd.read_csv, dd.read_csv),
         'parquet': (pd.read_parquet, dd.read_parquet),
         'par': (pd.read_parquet, dd.read_parquet),
+        'json': (pd.read_json, dd.read_json),
+        'pkl': (pd.read_pickle, None),
+        'pickle': (pd.read_pickle, None),
     }
 
     def get_file_format(file_path):
@@ -120,11 +123,14 @@ def load_data(data, **kwargs):
         fmt = path.splitext(data)[-1].lstrip('.')
 
     if fmt not in fmt_mapping.keys():
-        fmt = fmt_mapping.keys()[0]
+        # fmt = fmt_mapping.keys()[0]
+        raise ValueError(f'Not supported data format{fmt}')
+    fn = fmt_mapping[fmt][int(dask_enabled)]
+    if fn is None:
+        raise ValueError(f'Not supported data format{fmt}')
 
     if dask_enabled and path.isdir(data) and not glob.has_magic(data):
         data = f'{data}*' if data.endswith(path.sep) else f'{data}{path.sep}*'
-    fn = fmt_mapping[fmt][int(dask_enabled)]
     df = fn(data, **kwargs)
 
     if dask_enabled and worker_count > 1 and df.npartitions < worker_count:
