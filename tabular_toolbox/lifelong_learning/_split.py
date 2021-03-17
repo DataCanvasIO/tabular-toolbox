@@ -34,6 +34,10 @@ class PrequentialSplit(_BaseKFold):
             `preq-bls`:
             `preq-slid-bls`:
             `preq-bls-gap`:
+            
+    References
+    ----------
+        Cerqueira V, Torgo L, Mozetič I. Evaluating time series forecasting models: An empirical study on performance estimation methods[J]. Machine Learning, 2020, 109(11): 1997-2028.
     """
 
     def __init__(self, strategy='preq-bls', base_size=None, n_splits=5, *, max_train_size=None):
