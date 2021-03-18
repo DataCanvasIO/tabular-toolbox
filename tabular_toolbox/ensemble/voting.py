@@ -61,8 +61,8 @@ class GreedyEnsemble(BaseEnsemble):
         if self.weights_ is None:
             return 'not fitted'
 
-        estimators = [getattr(e, "gbm_model", e) for e in self.estimators]
-        return f'{type(self).__name__}(weight={self.weights_})'
+        #estimators = [getattr(e, "gbm_model", e) for e in self.estimators]
+        return f'{type(self).__name__}(weight={self.weights_}, scores={self.scores_})'
 
     def _repr_html_(self):
         import pandas as pd
