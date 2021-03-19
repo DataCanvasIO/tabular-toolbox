@@ -57,7 +57,7 @@ def hash_dataframe(df, method='md5', index=False):
     m = getattr(hashlib, method)()
 
     for col in df.columns:
-        m.update(col.encode())
+        m.update(str(col).encode())
 
     if isinstance(df, dd.DataFrame):
         x = df.map_partitions(lambda part: pd.util.hash_pandas_object(part, index=index),
@@ -71,6 +71,9 @@ def hash_dataframe(df, method='md5', index=False):
 
 
 def hash_data(data, method='md5'):
+    if isinstance(data, (pd.DataFrame, dd.DataFrame)):
+        return hash_dataframe(data, method=method)
+
     m = getattr(hashlib, method)()
     m.update(data)
     return m.hexdigest()
