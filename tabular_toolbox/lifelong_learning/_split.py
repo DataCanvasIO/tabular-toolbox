@@ -12,7 +12,7 @@ from sklearn.model_selection._split import _BaseKFold
 
 def select_valid_oof(y, oof):
     if len(oof.shape) == 1:
-        idx = np.argwhere(~np.isnan(oof[:]).any(1)).ravel()
+        idx = np.argwhere(~np.isnan(oof[:])).ravel()
     elif len(oof.shape) == 2:
         idx = np.argwhere(~np.isnan(oof[:, 0])).ravel()
     elif len(oof.shape) == 3:
