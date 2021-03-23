@@ -11,7 +11,10 @@ from sklearn.model_selection._split import _BaseKFold
 
 
 def select_valid_oof(y, oof):
-    idx = np.argwhere(~np.isnan(oof[:]).any(1)).ravel()
+    if len(oof.shape)<=1:
+        idx = np.argwhere(~np.isnan(oof[:])).ravel()
+    else:
+        idx = np.argwhere(~np.isnan(oof[:]).any(1)).ravel()
     return y.iloc[idx] if hasattr(y, 'iloc') else y[idx], oof[idx]
 
 
