@@ -1,5 +1,7 @@
 import hashlib
+import pickle
 from functools import partial
+from io import BytesIO
 
 import dask.dataframe as dd
 import numpy as np
@@ -73,6 +75,22 @@ def hash_dataframe(df, method='md5', index=False):
 def hash_data(data, method='md5'):
     if isinstance(data, (pd.DataFrame, dd.DataFrame)):
         return hash_dataframe(data, method=method)
+    elif isinstance(data, (pd.Series, dd.Series)):
+        return hash_dataframe(data.to_frame(), method=method)
+
+    if isinstance(data, (bytes, bytearray)):
+        pass
+    elif isinstance(data, str):
+        data = data.encode('utf-8')
+    else:
+        if isinstance(data, (list, tuple)):
+            data = [hash_data(x) if x is not None else x for x in data]
+        elif isinstance(data, dict):
+            data = {hash_data(k): hash_data(v) if v is not None else v for k, v in data.items()}
+        buf = BytesIO()
+        pickle.dump(data, buf)
+        data = buf.getvalue()
+        buf.close()
 
     m = getattr(hashlib, method)()
     m.update(data)
