@@ -44,7 +44,7 @@ class PrequentialSplit(_BaseKFold):
     """
 
     def __init__(self, strategy='preq-bls', base_size=None, n_splits=5, stride=1, *, max_train_size=None):
-        super(PrequentialSplit, self).__init__(n_splits=n_splits, shuffle=False, random_state=None)
+        super(PrequentialSplit, self).__init__(n_splits=(n_splits // stride) - 1, shuffle=False, random_state=None)
         self.max_train_size = max_train_size
         self.base_size = base_size
         self.stride = stride
