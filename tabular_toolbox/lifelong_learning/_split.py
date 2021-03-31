@@ -8,6 +8,9 @@ import numpy as np
 from sklearn.utils import indexable
 from sklearn.utils.validation import _num_samples
 from sklearn.model_selection._split import _BaseKFold
+from ..utils import logging
+
+logger = logging.get_logger(__name__)
 
 
 def select_valid_oof(y, oof):
@@ -20,7 +23,6 @@ def select_valid_oof(y, oof):
     else:
         raise ValueError(f'Unsupported shape:{oof.shape}')
     return y.iloc[idx] if hasattr(y, 'iloc') else y[idx], oof[idx]
-
 
 
 class PrequentialSplit(_BaseKFold):
@@ -41,10 +43,11 @@ class PrequentialSplit(_BaseKFold):
         Cerqueira V, Torgo L, Mozetič I. Evaluating time series forecasting models: An empirical study on performance estimation methods[J]. Machine Learning, 2020, 109(11): 1997-2028.
     """
 
-    def __init__(self, strategy='preq-bls', base_size=None, n_splits=5, *, max_train_size=None):
+    def __init__(self, strategy='preq-bls', base_size=None, n_splits=5, stride=1, *, max_train_size=None):
         super(PrequentialSplit, self).__init__(n_splits=n_splits, shuffle=False, random_state=None)
         self.max_train_size = max_train_size
         self.base_size = base_size
+        self.stride = stride
         self.n_folds = n_splits
         self.strategy = strategy
         self.fold_size = None
@@ -88,12 +91,19 @@ class PrequentialSplit(_BaseKFold):
         indices = np.arange(n_samples)
         fold_size = (n_samples - base) // self.n_folds
         self.fold_size = fold_size
+        logger.info(f'n_folds:{self.n_folds}')
+        logger.info(f'fold_size:{fold_size}')
         if self.strategy == PrequentialSplit.STRATEGY_PREQ_BLS_GAP:
             test_starts = range(fold_size * 2 + base, n_samples, fold_size)
         else:
             test_starts = range(fold_size + base, n_samples, fold_size)
-
-        for test_start in test_starts:
+        last_step = -1
+        for fold, test_start in enumerate(test_starts):
+            if last_step == fold // self.stride:
+                # skip this fold
+                continue
+            else:
+                last_step = fold // self.stride
             if self.strategy == PrequentialSplit.STRATEGY_PREQ_BLS:
                 yield (indices[:test_start], indices[test_start:test_start + fold_size])
             elif self.strategy == PrequentialSplit.STRATEGY_PREQ_SLID_BLS:
